@@ -1,0 +1,18 @@
+{
+  "name": "bun-demo",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.16.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "kysely": "^0.28.9",
+    "pg": "^8.16.3",
+    "pg-boss": "^12.5.4"
+  }
+}
