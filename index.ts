@@ -32,7 +32,7 @@ const kysely = new Kysely<Database>({ dialect });
 export class KyselyBossAdapter {
   constructor(
     private readonly runner: Kysely<Database> | Transaction<Database>,
-  ) {}
+  ) { }
 
   async executeSql(text: string, values: any[] = []): Promise<{ rows: any[] }> {
     const result = await this.runner.executeQuery(
@@ -47,7 +47,7 @@ async function setupSchema() {
   await kysely.schema
     .createTable("users")
     .ifNotExists()
-    .addColumn("id", "serial", (cb) => cb.primaryKey())
+    .addColumn("id", "uuid", (cb) => cb.primaryKey().defaultTo(crypto.randomUUID()))
     .addColumn("email", "varchar(255)", (cb) => cb.unique().notNull())
     .addColumn("created_at", "timestamp", (cb) =>
       cb.notNull().defaultTo("now()"),
@@ -57,13 +57,26 @@ async function setupSchema() {
 }
 
 async function registerUser() {
+  // Use a temporary boss instance ONLY to ensure the schema is created and ready.
+  const schemaBoss = new PgBoss({
+    db: new KyselyBossAdapter(kysely),
+  });
+  schemaBoss.on("error", console.error);
+
+  await schemaBoss.start();
+  console.log("pg-boss schema is ready.");
+  await schemaBoss.stop();
+
+  // Now, create the 'real' boss instance for our application logic.
   const boss = new PgBoss({
     db: new KyselyBossAdapter(kysely),
   });
 
   boss.on("error", console.error);
 
+  // Start the new instance. It will see the schema is already there.
   await boss.start();
+  console.log(`Is pg-boss installed: ${await boss.isInstalled()}`)
 
   const queue = "userQueue";
   await boss.createQueue(queue);
