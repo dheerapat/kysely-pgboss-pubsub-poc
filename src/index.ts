@@ -1,14 +1,19 @@
 /**
  * Application entry point.
  * Wires all infrastructure: database, pg-boss, event bus.
- * Domain layers (Phase 2+) will be imported and wired here.
+ * Registers notification domain worker.
+ * Starts Elysia HTTP server.
  */
+import { Elysia } from "elysia";
 import { setupSchema } from "./infrastructure/db/schema.ts";
 import { createBoss } from "./infrastructure/events/boss.ts";
 import { PgBossEventBus } from "./infrastructure/events/PgBossEventBus.ts";
 import { pool } from "./infrastructure/db/pool.ts";
 import { UserRepository } from "./infrastructure/user/UserRepository.ts";
 import { UserService } from "./domains/user/UserService.ts";
+import { NotificationService } from "./domains/notification/NotificationService.ts";
+
+const PORT = parseInt(process.env["PORT"] ?? "3000");
 
 async function main(): Promise<void> {
   // 1. Set up database schema
@@ -20,16 +25,37 @@ async function main(): Promise<void> {
   // 3. Create the event bus (implements IEventBus)
   const eventBus = new PgBossEventBus(boss);
 
-  // 4. Wire domain services (Phase 2)
+  // 4. Wire domain services
   const userRepo = new UserRepository();
   const userService = new UserService(userRepo, eventBus);
 
-  console.log("[app] Infrastructure ready. UserService available.");
-  console.log("[app] userService:", typeof userService);
+  // 5. Wire notification domain worker — registers BEFORE server starts
+  const notificationService = new NotificationService();
+  await eventBus.subscribe("user.registered", (payload) =>
+    notificationService.handleUserRegistered(payload),
+  );
+  console.log("[app] user.registered worker registered.");
+
+  // 6. Start HTTP server
+  const app = new Elysia()
+    .get("/users", async () => {
+      return userRepo.findAll();
+    })
+    .post("/users", async ({ body, set }) => {
+      const { email, name } = body as { email: string; name: string };
+      const result = await userService.register(email, name);
+      set.status = 201;
+      return result;
+    })
+    .listen(PORT);
+
+  console.log(`[app] Elysia server running on port ${app.server?.port}`);
+  console.log("[app] Infrastructure ready. Awaiting requests.");
 
   // Graceful shutdown
   process.on("SIGINT", async () => {
     console.log("[app] Shutting down...");
+    app.server?.stop();
     await boss.stop();
     await pool.end();
     process.exit(0);
