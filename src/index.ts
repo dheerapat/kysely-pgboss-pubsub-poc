@@ -7,6 +7,8 @@ import { setupSchema } from "./infrastructure/db/schema.ts";
 import { createBoss } from "./infrastructure/events/boss.ts";
 import { PgBossEventBus } from "./infrastructure/events/PgBossEventBus.ts";
 import { pool } from "./infrastructure/db/pool.ts";
+import { UserRepository } from "./infrastructure/user/UserRepository.ts";
+import { UserService } from "./domains/user/UserService.ts";
 
 async function main(): Promise<void> {
   // 1. Set up database schema
@@ -18,8 +20,12 @@ async function main(): Promise<void> {
   // 3. Create the event bus (implements IEventBus)
   const eventBus = new PgBossEventBus(boss);
 
-  // eventBus is now ready to be injected into domain services (Phase 2+)
-  console.log("[app] Infrastructure ready. eventBus:", typeof eventBus);
+  // 4. Wire domain services (Phase 2)
+  const userRepo = new UserRepository();
+  const userService = new UserService(userRepo, eventBus);
+
+  console.log("[app] Infrastructure ready. UserService available.");
+  console.log("[app] userService:", typeof userService);
 
   // Graceful shutdown
   process.on("SIGINT", async () => {
