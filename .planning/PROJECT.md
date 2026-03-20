@@ -13,15 +13,22 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 ### Validated
 
 - ✓ KyselyAdapter bridges pg-boss and Kysely using the same pg.Pool — existing
+- ✓ Single pg.Pool and Kysely<Database> singleton pattern — Validated in Phase 1: infrastructure-foundation
+- ✓ KyselyAdapter implements pg-boss IDatabase via CompiledQuery.raw — Validated in Phase 1: infrastructure-foundation
+- ✓ PgBoss singleton factory + KNOWN_QUEUES boot creation — Validated in Phase 1: infrastructure-foundation
+- ✓ DomainEventMap typed event contract (user.registered payload) — Validated in Phase 1: infrastructure-foundation
+- ✓ IEventBus interface in domain layer (zero pg-boss surface) — Validated in Phase 1: infrastructure-foundation
+- ✓ PgBossEventBus implements IEventBus with transactional { db: KyselyAdapter } publish — Validated in Phase 1: infrastructure-foundation
+
+**Current State:** Phase 1 complete — infrastructure layer built. src/index.ts boots pg-boss and creates event bus. Phase 2 (User Domain) is next.
 
 ### Active
 
 - [ ] Folder-per-domain structure with clear boundaries (User, Notification)
 - [ ] Tactical DDD patterns: entities, value objects, domain events, repositories per domain
-- [ ] Typed event bus abstraction wrapping pg-boss — domain code never calls pg-boss directly
 - [ ] User domain: register user (Kysely INSERT) + publish UserRegistered event atomically inside a transaction
 - [ ] Notification domain: subscribe to UserRegistered, handle asynchronously as a pg-boss worker
-- [ ] HTTP API (Hono or Elysia) as the trigger surface — curl to trigger the full flow
+- [ ] HTTP API (Elysia) as the trigger surface — curl to trigger the full flow
 - [ ] Observability: console logs showing the atomic tx commit, event queued, and handler execution
 
 ### Out of Scope
@@ -57,4 +64,4 @@ This repo already has a working single-file POC (`index.ts`) demonstrating the K
 | Hono or Elysia for HTTP | Bun-native, lightweight, minimal boilerplate | — Pending |
 
 ---
-*Last updated: 2026-03-20 after initialization*
+*Last updated: 2026-03-20 after Phase 1: infrastructure-foundation complete*
