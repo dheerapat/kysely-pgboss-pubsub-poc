@@ -16,10 +16,10 @@
 
 ### User Domain
 
-- [ ] **USER-01**: A `UserId` value object wraps a UUID string with type safety
-- [ ] **USER-02**: An `Email` value object wraps an email string with basic format validation
-- [ ] **USER-03**: A `User` entity holds `UserId`, `Email`, and `name` — constructed via a factory, not mutated after creation
-- [ ] **USER-04**: An `IUserRepository` interface in the user domain defines `save(user, tx)` and `findAll()` — no Kysely types leak into the domain interface
+- [x] **USER-01**: A `UserId` value object wraps a UUID string with type safety
+- [x] **USER-02**: An `Email` value object wraps an email string with basic format validation
+- [x] **USER-03**: A `User` entity holds `UserId`, `Email`, and `name` — constructed via a factory, not mutated after creation
+- [x] **USER-04**: An `IUserRepository` interface in the user domain defines `save(user, tx)` and `findAll()` — no Kysely types leak into the domain interface
 - [ ] **USER-05**: A Kysely implementation of `IUserRepository` in the infrastructure layer persists users to a `users` table using the provided transaction
 - [ ] **USER-06**: A `UserService.register(email, name)` method opens a Kysely transaction, saves the user, and publishes a `user.registered` event via `IEventBus` using `KyselyAdapter(tx)` — all in a single atomic transaction
 
@@ -75,10 +75,10 @@
 | INFRA-04 | Phase 1 | Complete |
 | INFRA-05 | Phase 1 | Complete |
 | INFRA-06 | Phase 1 | Complete |
-| USER-01 | Phase 2 | Pending |
-| USER-02 | Phase 2 | Pending |
-| USER-03 | Phase 2 | Pending |
-| USER-04 | Phase 2 | Pending |
+| USER-01 | Phase 2 | Complete |
+| USER-02 | Phase 2 | Complete |
+| USER-03 | Phase 2 | Complete |
+| USER-04 | Phase 2 | Complete |
 | USER-05 | Phase 2 | Pending |
 | USER-06 | Phase 2 | Pending |
 | NOTIF-01 | Phase 3 | Pending |
