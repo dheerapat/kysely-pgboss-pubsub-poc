@@ -9,10 +9,10 @@
 
 - [x] **INFRA-01**: A single shared `pg.Pool` and `Kysely` instance are initialized at boot and reused across all domains
 - [x] **INFRA-02**: A `KyselyAdapter` class bridges pg-boss and Kysely so pg-boss can execute SQL through an active Kysely transaction
-- [ ] **INFRA-03**: A single `PgBoss` instance is initialized at boot, schema is installed once, and all known queues are created before any publish or subscribe
+- [x] **INFRA-03**: A single `PgBoss` instance is initialized at boot, schema is installed once, and all known queues are created before any publish or subscribe
 - [x] **INFRA-04**: A `DomainEventMap` type in the shared domain layer defines all event names and their payload types — this is the typed contract between publishers and subscribers
 - [x] **INFRA-05**: An `IEventBus` interface in the shared domain layer exposes `publish(event, payload, opts?)` and `subscribe(event, handler)` — domain code depends only on this interface, never on pg-boss directly
-- [ ] **INFRA-06**: A `PgBossEventBus` class in the infrastructure layer implements `IEventBus` using pg-boss — `publish` accepts an optional `{ db: KyselyAdapter }` to route the job through an active transaction
+- [x] **INFRA-06**: A `PgBossEventBus` class in the infrastructure layer implements `IEventBus` using pg-boss — `publish` accepts an optional `{ db: KyselyAdapter }` to route the job through an active transaction
 
 ### User Domain
 
@@ -71,10 +71,10 @@
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
-| INFRA-03 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Complete |
 | INFRA-04 | Phase 1 | Complete |
 | INFRA-05 | Phase 1 | Complete |
-| INFRA-06 | Phase 1 | Pending |
+| INFRA-06 | Phase 1 | Complete |
 | USER-01 | Phase 2 | Pending |
 | USER-02 | Phase 2 | Pending |
 | USER-03 | Phase 2 | Pending |
