@@ -78,6 +78,11 @@ Plans:
 
 **Requirements:** HTTP-04, DEMO-02
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Duplicate email 409 handling + README documentation (HTTP-04, DEMO-02)
+
 **Success Criteria:**
 1. `POST /users` with a duplicate email returns HTTP 409 and no new user row is added to the database
 2. After a duplicate email attempt, the pg-boss job table contains no new pending job for `user.registered` — the rollback prevented both the INSERT and the job creation
