@@ -56,7 +56,7 @@ Plans:
 
 **Requirements:** NOTIF-01, NOTIF-02, HTTP-01, HTTP-02, HTTP-03, DEMO-01
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md — NotificationService domain class + unit test (NOTIF-01)

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-20T14:16:46.415Z"
+last_updated: "2026-03-20T14:27:55.349Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -35,6 +35,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - **02-user-domain-01**: Branded types via unique symbol chosen over class wrappers for zero runtime overhead; nominal typing at compile time
 - [Phase 02-user-domain]: UserService owns transaction, UserRepository receives tx as param — clean layer separation
 - [Phase 02-user-domain]: KyselyAdapter(tx) bridges Kysely transaction to pg-boss job insertion — achieving INSERT+job atomicity
+- [Phase 03]: Worker subscription registered BEFORE .listen() — ensures no HTTP requests arrive before pg-boss worker is ready
+- [Phase 03]: Elysia chosen for HTTP server — minimal overhead, Bun-native, set.status=201 pattern for HTTP 201 on POST /users
 
 ## Log
 

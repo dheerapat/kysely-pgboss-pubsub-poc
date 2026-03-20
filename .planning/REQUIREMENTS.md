@@ -25,19 +25,19 @@
 
 ### Notification Domain
 
-- [ ] **NOTIF-01**: A `NotificationService.handleUserRegistered(payload)` method receives the `user.registered` event payload and logs a simulated welcome email notification
-- [ ] **NOTIF-02**: The `user.registered` pg-boss worker is registered at boot by subscribing `NotificationService.handleUserRegistered` to the `user.registered` queue via `IEventBus`
+- [x] **NOTIF-01**: A `NotificationService.handleUserRegistered(payload)` method receives the `user.registered` event payload and logs a simulated welcome email notification
+- [x] **NOTIF-02**: The `user.registered` pg-boss worker is registered at boot by subscribing `NotificationService.handleUserRegistered` to the `user.registered` queue via `IEventBus`
 
 ### HTTP API
 
-- [ ] **HTTP-01**: Elysia HTTP server starts at boot and listens for requests
-- [ ] **HTTP-02**: `POST /users` accepts `{ email, name }`, calls `UserService.register()`, and returns `{ userId }` on success
-- [ ] **HTTP-03**: `GET /users` returns a list of all persisted users from the database
+- [x] **HTTP-01**: Elysia HTTP server starts at boot and listens for requests
+- [x] **HTTP-02**: `POST /users` accepts `{ email, name }`, calls `UserService.register()`, and returns `{ userId }` on success
+- [x] **HTTP-03**: `GET /users` returns a list of all persisted users from the database
 - [ ] **HTTP-04**: `POST /users` with a duplicate email returns a 409 error and demonstrates that no `user.registered` job was created (transaction rolled back atomically)
 
 ### Demo
 
-- [ ] **DEMO-01**: Console logs clearly show the sequence: transaction opened → user INSERT → job created (same tx) → transaction committed → (async) worker picked up job → notification handler executed
+- [x] **DEMO-01**: Console logs clearly show the sequence: transaction opened → user INSERT → job created (same tx) → transaction committed → (async) worker picked up job → notification handler executed
 - [ ] **DEMO-02**: A `README.md` documents the pattern thesis, the folder structure, and includes annotated curl commands to run the full demo flow
 
 ## v2 Requirements
@@ -81,13 +81,13 @@
 | USER-04 | Phase 2 | Complete |
 | USER-05 | Phase 2 | Complete |
 | USER-06 | Phase 2 | Complete |
-| NOTIF-01 | Phase 3 | Pending |
-| NOTIF-02 | Phase 3 | Pending |
-| HTTP-01 | Phase 3 | Pending |
-| HTTP-02 | Phase 3 | Pending |
-| HTTP-03 | Phase 3 | Pending |
+| NOTIF-01 | Phase 3 | Complete |
+| NOTIF-02 | Phase 3 | Complete |
+| HTTP-01 | Phase 3 | Complete |
+| HTTP-02 | Phase 3 | Complete |
+| HTTP-03 | Phase 3 | Complete |
 | HTTP-04 | Phase 4 | Pending |
-| DEMO-01 | Phase 3 | Pending |
+| DEMO-01 | Phase 3 | Complete |
 | DEMO-02 | Phase 4 | Pending |
 
 **Coverage:**
