@@ -20,8 +20,8 @@
 - [x] **USER-02**: An `Email` value object wraps an email string with basic format validation
 - [x] **USER-03**: A `User` entity holds `UserId`, `Email`, and `name` — constructed via a factory, not mutated after creation
 - [x] **USER-04**: An `IUserRepository` interface in the user domain defines `save(user, tx)` and `findAll()` — no Kysely types leak into the domain interface
-- [ ] **USER-05**: A Kysely implementation of `IUserRepository` in the infrastructure layer persists users to a `users` table using the provided transaction
-- [ ] **USER-06**: A `UserService.register(email, name)` method opens a Kysely transaction, saves the user, and publishes a `user.registered` event via `IEventBus` using `KyselyAdapter(tx)` — all in a single atomic transaction
+- [x] **USER-05**: A Kysely implementation of `IUserRepository` in the infrastructure layer persists users to a `users` table using the provided transaction
+- [x] **USER-06**: A `UserService.register(email, name)` method opens a Kysely transaction, saves the user, and publishes a `user.registered` event via `IEventBus` using `KyselyAdapter(tx)` — all in a single atomic transaction
 
 ### Notification Domain
 
@@ -79,8 +79,8 @@
 | USER-02 | Phase 2 | Complete |
 | USER-03 | Phase 2 | Complete |
 | USER-04 | Phase 2 | Complete |
-| USER-05 | Phase 2 | Pending |
-| USER-06 | Phase 2 | Pending |
+| USER-05 | Phase 2 | Complete |
+| USER-06 | Phase 2 | Complete |
 | NOTIF-01 | Phase 3 | Pending |
 | NOTIF-02 | Phase 3 | Pending |
 | HTTP-01 | Phase 3 | Pending |
