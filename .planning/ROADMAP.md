@@ -56,6 +56,12 @@ Plans:
 
 **Requirements:** NOTIF-01, NOTIF-02, HTTP-01, HTTP-02, HTTP-03, DEMO-01
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — NotificationService domain class + unit test (NOTIF-01)
+- [ ] 03-02-PLAN.md — Elysia HTTP server + worker subscription + full composition root (NOTIF-02, HTTP-01, HTTP-02, HTTP-03, DEMO-01)
+
 **Success Criteria:**
 1. `NotificationService.handleUserRegistered(payload)` logs a formatted "sending welcome email" message with the user's email and id
 2. The `user.registered` pg-boss worker is registered at boot and picks up jobs without manual intervention
