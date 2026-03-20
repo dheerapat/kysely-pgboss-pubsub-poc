@@ -12,6 +12,13 @@
 
 **Requirements:** INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05, INFRA-06
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — DB infrastructure: types, pool, Kysely, KyselyAdapter, schema DDL (INFRA-01, INFRA-02)
+- [ ] 01-02-PLAN.md — Domain event contracts: DomainEventMap + IEventBus interface (INFRA-04, INFRA-05)
+- [ ] 01-03-PLAN.md — PgBoss singleton + PgBossEventBus + src/index.ts wiring (INFRA-03, INFRA-06)
+
 **Success Criteria:**
 1. A single `pg.Pool` and `Kysely` instance are created and reusable across domains
 2. `KyselyAdapter` correctly executes SQL through a Kysely transaction (testable by calling `executeSql` with a live tx)
