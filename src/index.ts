@@ -43,9 +43,22 @@ async function main(): Promise<void> {
     })
     .post("/users", async ({ body, set }) => {
       const { email, name } = body as { email: string; name: string };
-      const result = await userService.register(email, name);
-      set.status = 201;
-      return result;
+      try {
+        const result = await userService.register(email, name);
+        set.status = 201;
+        return result;
+      } catch (err) {
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: string }).code === "23505"
+        ) {
+          set.status = 409;
+          return { error: "Email already registered" };
+        }
+        throw err;
+      }
     })
     .listen(PORT);
 

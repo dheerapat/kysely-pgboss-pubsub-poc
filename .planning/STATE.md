@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-20T14:27:55.349Z"
+last_updated: "2026-03-20T14:31:54.523Z"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -18,7 +18,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Phase 02 — user-domain (plan 02 complete, phase complete)
+**Current focus:** Phase 03 — notification-domain-http-api
 
 ## Phase Status
 

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "/home/dheeto/dev/kysely-pgboss-pubsub-poc/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "/home/dheeto/dev/kysely-pgboss-pubsub-poc/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}
