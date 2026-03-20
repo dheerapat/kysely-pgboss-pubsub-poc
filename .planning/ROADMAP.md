@@ -35,6 +35,12 @@ Plans:
 
 **Requirements:** USER-01, USER-02, USER-03, USER-04, USER-05, USER-06
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Value objects (UserId, Email), User entity, IUserRepository interface (USER-01–USER-04)
+- [ ] 02-02-PLAN.md — UserRepository (Kysely impl), UserService (atomic tx), src/index.ts wiring (USER-05–USER-06)
+
 **Success Criteria:**
 1. `UserId` and `Email` value objects exist with type safety; `Email` rejects invalid format at construction time
 2. `User` entity is created via factory and cannot be mutated after construction
