@@ -93,7 +93,11 @@ Plans:
   1. `POST /users` with a duplicate email returns HTTP 409 and zero jobs appear in either subscriber queue (`notification.user.registered` and `audit.user.registered`)
   2. README explains pub/sub vs queue-based approach, `pgboss.subscription` table role, fan-out mechanism, and boot sequence ordering rationale
   3. `PgBossEventBus` source contains an inline comment documenting `{ db }` partial-transaction semantics: subscription lookup uses the pool; job INSERTs use the active Kysely transaction
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — README v1.1 pub/sub documentation + VERI-03 JSDoc verification
+- [ ] 07-02-PLAN.md — Rollback regression: duplicate email → HTTP 409, zero jobs in both queues
 
 ---
 
@@ -108,5 +112,5 @@ Plans:
 | 3. Application Logic | v1.0 | 3/3 | Complete | 2026-03-21 |
 | 4. HTTP + Demo | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 5. Boot Infrastructure & Interface Contract | v1.1 | 2/2 | Complete   | 2026-03-21 |
-| 6. PgBossEventBus Migration + Fan-Out Wiring | v1.1 | 0/? | Not started | - |
-| 7. Documentation & Verification | v1.1 | 0/? | Not started | - |
+| 6. PgBossEventBus Migration + Fan-Out Wiring | v1.1 | 3/3 | Complete | 2026-03-21 |
+| 7. Documentation & Verification | v1.1 | 0/2 | Not started | - |
