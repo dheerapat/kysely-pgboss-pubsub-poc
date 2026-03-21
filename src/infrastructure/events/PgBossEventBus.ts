@@ -25,6 +25,7 @@ export class PgBossEventBus implements IEventBus {
     // pg-boss v12 pub/sub: publish() fans out to ALL queues subscribed to this event channel
     // The db option is forwarded to each boss.send() call internally — atomicity preserved
     const sendOpts = opts?.db ? { db: opts.db } : {};
+    // Subscription lookup on global pool (non-transactional); job INSERTs via opts.db (transactional)
     await this.boss.publish(event as string, payload as object, sendOpts);
   }
 
