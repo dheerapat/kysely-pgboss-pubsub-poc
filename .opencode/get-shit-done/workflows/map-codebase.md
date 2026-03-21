@@ -17,7 +17,7 @@ Output: .planning/codebase/ folder with 7 structured documents about the codebas
 Include enough detail to be useful as reference. Prioritize practical examples (especially code patterns) over arbitrary brevity.
 
 **Always include file paths:**
-Documents are reference material for Claude when planning/executing. Always include actual file paths formatted with backticks: `src/services/user.ts`.
+Documents are reference material for the agent when planning/executing. Always include actual file paths formatted with backticks: `src/services/user.ts`.
 </philosophy>
 
 <process>
@@ -185,9 +185,19 @@ Continue to collect_confirmations.
 </step>
 
 <step name="collect_confirmations">
-Wait for all 4 agents to complete.
+Wait for all 4 agents to complete using TaskOutput tool.
 
-Read each agent's output file to collect confirmations.
+**For each agent task_id returned by the Agent tool calls above:**
+```
+TaskOutput tool:
+  task_id: "{task_id from Agent result}"
+  block: true
+  timeout: 300000
+```
+
+Call TaskOutput for all 4 agents in parallel (single message with 4 TaskOutput calls).
+
+Once all TaskOutput calls return, read each agent's output file to collect confirmations.
 
 **Expected confirmation format from each agent:**
 ```

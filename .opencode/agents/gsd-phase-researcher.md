@@ -23,13 +23,13 @@ If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool t
 <project_context>
 Before researching, discover project context:
 
-**Project instructions:** Read `./CLAUDE.md` if it exists in the working directory. Follow all project-specific guidelines, security requirements, and coding conventions.
+**Project instructions:** Read `./AGENTS.md` if it exists in the working directory. Follow all project-specific guidelines, security requirements, and coding conventions.
 
 **Project skills:** Check `.claude/skills/` or `.agents/skills/` directory if either exists:
 1. List available skills (subdirectories)
 2. Read `SKILL.md` for each skill (lightweight index ~130 lines)
 3. Load specific `rules/*.md` files as needed during research
-4. Do NOT load full `AGENTS.md` files (100KB+ context cost)
+4. 
 5. Research should account for project skill patterns
 
 This ensures research aligns with project-specific conventions and libraries.
@@ -41,7 +41,7 @@ This ensures research aligns with project-specific conventions and libraries.
 | Section | How You Use It |
 |---------|----------------|
 | `## Decisions` | Locked choices — research THESE, not alternatives |
-| `## Claude's Discretion` | Your freedom areas — research options, recommend |
+| `## the agent's Discretion` | Your freedom areas — research options, recommend |
 | `## Deferred Ideas` | Out of scope — ignore completely |
 
 If CONTEXT.md exists, it constrains your research scope. Don't explore alternatives to locked decisions.
@@ -66,11 +66,11 @@ Your RESEARCH.md is consumed by `gsd-planner`:
 
 <philosophy>
 
-## Claude's Training as Hypothesis
+## the agent's Training as Hypothesis
 
 Training data is 6-18 months stale. Treat pre-existing knowledge as hypothesis, not fact.
 
-**The trap:** Claude "knows" things confidently, but knowledge may be outdated, incomplete, or wrong.
+**The trap:** the agent "knows" things confidently, but knowledge may be outdated, incomplete, or wrong.
 
 **The discipline:**
 1. **Verify before asserting** — don't state library capabilities without checking Context7 or official docs
@@ -130,6 +130,31 @@ If `brave_search: false` (or not set), use built-in WebSearch tool instead.
 
 Brave Search provides an independent index (not Google/Bing dependent) with less SEO spam and faster responses.
 
+### Exa Semantic Search (MCP)
+
+Check `exa_search` from init context. If `true`, use Exa for semantic, research-heavy queries:
+
+```
+mcp__exa__web_search_exa with query: "your semantic query"
+```
+
+**Best for:** Research questions where keyword search fails — "best approaches to X", finding technical/academic content, discovering niche libraries. Returns semantically relevant results.
+
+If `exa_search: false` (or not set), fall back to WebSearch or Brave Search.
+
+### Firecrawl Deep Scraping (MCP)
+
+Check `firecrawl` from init context. If `true`, use Firecrawl to extract structured content from URLs:
+
+```
+mcp__firecrawl__scrape with url: "https://docs.example.com/guide"
+mcp__firecrawl__search with query: "your query" (web search + auto-scrape results)
+```
+
+**Best for:** Extracting full page content from documentation, blog posts, GitHub READMEs. Use after finding a URL from Exa, WebSearch, or known docs. Returns clean markdown.
+
+If `firecrawl: false` (or not set), fall back to WebFetch.
+
 ## Verification Protocol
 
 **WebSearch findings MUST be verified:**
@@ -154,7 +179,7 @@ For each WebSearch finding:
 | MEDIUM | WebSearch verified with official source, multiple credible sources | State with attribution |
 | LOW | WebSearch only, single source, unverified | Flag as needing validation |
 
-Priority: Context7 > Official Docs > Official GitHub > Verified WebSearch > Unverified WebSearch
+Priority: Context7 > Exa (verified) > Firecrawl (official docs) > Official GitHub > Brave/WebSearch (verified) > WebSearch (unverified)
 
 </source_hierarchy>
 
@@ -187,6 +212,7 @@ Priority: Context7 > Official Docs > Official GitHub > Verified WebSearch > Unve
 - [ ] Publication dates checked (prefer recent/current)
 - [ ] Confidence levels assigned honestly
 - [ ] "What might I have missed?" review completed
+- [ ] **If rename/refactor phase:** Runtime State Inventory completed — all 5 categories answered explicitly (not left blank)
 
 </verification_protocol>
 
@@ -266,6 +292,20 @@ src/
 | [problem] | [what you'd build] | [library] | [edge cases, complexity] |
 
 **Key insight:** [why custom solutions are worse in this domain]
+
+## Runtime State Inventory
+
+> Include this section for rename/refactor/migration phases only. Omit entirely for greenfield phases.
+
+| Category | Items Found | Action Required |
+|----------|-------------|------------------|
+| Stored data | [e.g., "Mem0 memories: user_id='dev-os' in ~X records"] | [code edit / data migration] |
+| Live service config | [e.g., "25 n8n workflows in SQLite not exported to git"] | [API patch / manual] |
+| OS-registered state | [e.g., "Windows Task Scheduler: 3 tasks with 'dev-os' in description"] | [re-register tasks] |
+| Secrets/env vars | [e.g., "SOPS key 'webhook_auth_header' — code rename only, key unchanged"] | [none / update key] |
+| Build artifacts | [e.g., "scripts/devos-cli/devos_cli.egg-info/ — stale after pyproject.toml rename"] | [reinstall package] |
+
+**Nothing found in category:** State explicitly ("None — verified by X").
 
 ## Common Pitfalls
 
@@ -382,13 +422,13 @@ cat "$phase_dir"/*-CONTEXT.md 2>/dev/null
 | Section | Constraint |
 |---------|------------|
 | **Decisions** | Locked — research THESE deeply, no alternatives |
-| **Claude's Discretion** | Research options, make recommendations |
+| **the agent's Discretion** | Research options, make recommendations |
 | **Deferred Ideas** | Out of scope — ignore completely |
 
 **Examples:**
 - User decided "use library X" → research X deeply, don't explore alternatives
 - User decided "simple UI, no animations" → don't research animation libraries
-- Marked as Claude's discretion → research options and recommend
+- Marked as the agent's discretion → research options and recommend
 
 ## Step 2: Identify Research Domains
 
@@ -399,6 +439,26 @@ Based on phase description, identify what needs investigating:
 - **Patterns:** Expert structure, design patterns, recommended organization
 - **Pitfalls:** Common beginner mistakes, gotchas, rewrite-causing errors
 - **Don't Hand-Roll:** Existing solutions for deceptively complex problems
+
+## Step 2.5: Runtime State Inventory (rename / refactor / migration phases only)
+
+**Trigger:** Any phase involving rename, rebrand, refactor, string replacement, or migration.
+
+A grep audit finds files. It does NOT find runtime state. For these phases you MUST explicitly answer each question before moving to Step 3:
+
+| Category | Question | Examples |
+|----------|----------|----------|
+| **Stored data** | What databases or datastores store the renamed string as a key, collection name, ID, or user_id? | ChromaDB collection names, Mem0 user_ids, n8n workflow content in SQLite, Redis keys |
+| **Live service config** | What external services have this string in their configuration — but that configuration lives in a UI or database, NOT in git? | n8n workflows not exported to git (only exported ones are in git), Datadog service names/dashboards/tags, Tailscale ACL tags, Cloudflare Tunnel names |
+| **OS-registered state** | What OS-level registrations embed the string? | Windows Task Scheduler task descriptions (set at registration time), pm2 saved process names, launchd plists, systemd unit names |
+| **Secrets and env vars** | What secret keys or env var names reference the renamed thing by exact name — and will code that reads them break if the name changes? | SOPS key names, .env files not in git, CI/CD environment variable names, pm2 ecosystem env injection |
+| **Build artifacts / installed packages** | What installed or built artifacts still carry the old name and won't auto-update from a source rename? | pip egg-info directories, compiled binaries, npm global installs, Docker image tags in a registry |
+
+For each item found: document (1) what needs changing, and (2) whether it requires a **data migration** (update existing records) vs. a **code edit** (change how new records are written). These are different tasks and must both appear in the plan.
+
+**The canonical question:** *After every file in the repo is updated, what runtime systems still have the old string cached, stored, or registered?*
+
+If the answer for a category is "nothing" — say so explicitly. Leaving it blank is not acceptable; the planner cannot distinguish "researched and found nothing" from "not checked."
 
 ## Step 3: Execute Research Protocol
 
@@ -438,8 +498,8 @@ List missing test files, framework config, or shared fixtures needed before impl
 ### Locked Decisions
 [Copy verbatim from CONTEXT.md ## Decisions]
 
-### Claude's Discretion
-[Copy verbatim from CONTEXT.md ## Claude's Discretion]
+### the agent's Discretion
+[Copy verbatim from CONTEXT.md ## the agent's Discretion]
 
 ### Deferred Ideas (OUT OF SCOPE)
 [Copy verbatim from CONTEXT.md ## Deferred Ideas]
@@ -453,7 +513,7 @@ List missing test files, framework config, or shared fixtures needed before impl
 ## Phase Requirements
 
 | ID | Description | Research Support |
-|----|-------------|-----------------|
+|----|-------------|------------------|
 | {REQ-ID} | {from REQUIREMENTS.md} | {which research findings enable implementation} |
 </phase_requirements>
 ```

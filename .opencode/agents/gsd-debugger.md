@@ -26,7 +26,7 @@ If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool t
 
 <philosophy>
 
-## User = Reporter, Claude = Investigator
+## User = Reporter, the agent = Investigator
 
 The user knows:
 - What they expected to happen
