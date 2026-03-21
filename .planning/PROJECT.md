@@ -18,6 +18,10 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ `DomainEventMap` type in shared domain layer: typed contract between publishers and subscribers — v1.0
 - ✓ `IEventBus` interface in shared domain layer: domain code depends only on this, never on pg-boss directly — v1.0
 - ✓ `PgBossEventBus` implements `IEventBus` via `boss.send()` with optional `{ db: IDbClient }` for transactional routing — v1.0
+- ✓ `PgBossEventBus.publish()` migrated to `boss.publish()` — native fan-out to all subscribed queues — v1.1 (Validated in Phase 06: PgBossEventBus Migration + Fan-Out Wiring)
+- ✓ `PgBossEventBus.subscribe()` uses 3-step `createQueue → boss.subscribe → boss.work` setup — v1.1 (Validated in Phase 06)
+- ✓ `AuditService` added as second independent subscriber for `user.registered` — pure domain class, no pg-boss imports — v1.1 (Validated in Phase 06)
+- ✓ Fan-out proven end-to-end: single `boss.publish()` fires both `NotificationService` and `AuditService` handlers — v1.1 (Validated in Phase 06)
 - ✓ `IDbClient` structural interface in domain layer: eliminates KyselyAdapter import from IEventBus, clean domain/infra boundary — v1.0
 - ✓ `UserId` and `Email` branded value objects with format validation — v1.0
 - ✓ `User` entity: private constructor, static factory, immutable after creation — v1.0
@@ -46,10 +50,10 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 
 ### Active
 
-- [ ] Migrate `PgBossEventBus` to use `boss.publish()` for event publishing
-- [ ] Migrate `PgBossEventBus` to use `boss.subscribe()` + `boss.work()` for subscriptions
-- [ ] Add `AuditService` (second subscriber) to demonstrate fan-out on `user.registered`
-- [ ] Update boot sequence to register pub/sub channel subscriptions before server start
+- [x] Migrate `PgBossEventBus` to use `boss.publish()` for event publishing
+- [x] Migrate `PgBossEventBus` to use `boss.subscribe()` + `boss.work()` for subscriptions
+- [x] Add `AuditService` (second subscriber) to demonstrate fan-out on `user.registered`
+- [x] Update boot sequence to register pub/sub channel subscriptions before server start
 - [ ] Update README to document pub/sub vs queue-based approach and fan-out pattern
 
 ### Out of Scope
@@ -65,7 +69,7 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 
 ## Context
 
-**Status:** v1.0 shipped 2026-03-21. All 4 phases complete, 9 plans executed, 14 tasks delivered.
+**Status:** v1.0 shipped 2026-03-21. v1.1 Phase 06 complete — pub/sub migration + fan-out wiring done. Phase 07 (Documentation & Verification) remaining.
 
 **Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
 
@@ -118,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after v1.1 milestone start*
+*Last updated: 2026-03-21 after Phase 06 completion*
