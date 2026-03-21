@@ -12,6 +12,7 @@ import { pool } from "./infrastructure/db/pool.ts";
 import { UserRepository } from "./infrastructure/user/UserRepository.ts";
 import { UserService } from "./domains/user/UserService.ts";
 import { NotificationService } from "./domains/notification/NotificationService.ts";
+import { AuditService } from "./domains/audit/AuditService.ts";
 
 const PORT = parseInt(process.env["PORT"] ?? "3000");
 
@@ -29,15 +30,24 @@ async function main(): Promise<void> {
   const userRepo = new UserRepository();
   const userService = new UserService(userRepo, eventBus);
 
-  // 5. Subscribe notification worker — createQueue + work happen inside subscribe(), BEFORE listen()
-  //    Boot order: start → createQueue → work → listen (no HTTP until all subscriptions ready)
+  // 5. Subscribe ALL workers BEFORE server starts — boot order enforces fan-out correctness
+  //    Each subscribe() call: createQueue → boss.subscribe → boss.work
+  //    Boot order: start → (createQueue + subscribe + work) × N subscribers → listen
   const notificationService = new NotificationService();
   await eventBus.subscribe(
     "user.registered",
     (payload) => notificationService.handleUserRegistered(payload),
     "notification",
   );
-  console.log("[app] user.registered worker registered.");
+  console.log("[app] NotificationService subscribed to user.registered.");
+
+  const auditService = new AuditService();
+  await eventBus.subscribe(
+    "user.registered",
+    (payload) => auditService.handleUserRegistered(payload),
+    "audit",
+  );
+  console.log("[app] AuditService subscribed to user.registered.");
 
   // 6. Start HTTP server
   const app = new Elysia()
