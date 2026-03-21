@@ -54,11 +54,14 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - `userRoutesPlugin` encapsulates `/users` GET and POST routes with context-injected services
 - `index.ts` becomes a pure composition root: imports plugins, composes them, starts server
 
+### Validated in Phase 8: Plugin Extraction
+
+- ✓ `servicesPlugin` decorates all wired deps onto Elysia context using `.decorate()` — Phase 8
+- ✓ `workersPlugin` registers all `IEventBus.subscribe()` calls, extracted from `index.ts` — Phase 8
+- ✓ `userRoutesPlugin` encapsulates `/users` GET and POST handlers — Phase 8
+
 ### Active
 
-- [ ] `servicesPlugin` decorates all wired deps onto Elysia context using `.decorate()`
-- [ ] `workersPlugin` registers all `IEventBus.subscribe()` calls, extracted from `index.ts`
-- [ ] `userRoutesPlugin` encapsulates `/users` GET and POST handlers
 - [ ] `index.ts` is a pure composition root — no instantiation, no subscription wiring inline
 
 ### Out of Scope
@@ -77,7 +80,7 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 
 ## Context
 
-**Status:** v1.0 and v1.1 both shipped 2026-03-21. All milestones complete — pub/sub migration, fan-out demo, rollback regression, and README all verified end-to-end.
+**Status:** v1.0 and v1.1 both shipped 2026-03-21. v1.2 Phase 8 (Plugin Extraction) complete 2026-03-21 — three Elysia plugins created (servicesPlugin, workersPlugin, userRoutesPlugin), all requirements PLUG-01/02/03 and TYPE-01 satisfied. Phase 9 (Composition Root) is next.
 
 **Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
 
@@ -134,4 +137,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after v1.2 milestone start*
+*Last updated: 2026-03-21 after Phase 8 (Plugin Extraction) complete*
