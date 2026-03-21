@@ -7,7 +7,10 @@ export class KyselyAdapter {
     private readonly runner: Kysely<Database> | Transaction<Database>,
   ) {}
 
-  async executeSql(text: string, values: any[] = []): Promise<{ rows: any[] }> {
+  async executeSql(
+    text: string,
+    values: unknown[] = [],
+  ): Promise<{ rows: unknown[] }> {
     const result = await this.runner.executeQuery(
       CompiledQuery.raw(text, values),
     );

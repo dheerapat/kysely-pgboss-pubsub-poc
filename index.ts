@@ -32,9 +32,12 @@ const kysely = new Kysely<Database>({ dialect });
 export class KyselyBossAdapter {
   constructor(
     private readonly runner: Kysely<Database> | Transaction<Database>,
-  ) { }
+  ) {}
 
-  async executeSql(text: string, values: any[] = []): Promise<{ rows: any[] }> {
+  async executeSql(
+    text: string,
+    values: unknown[] = [],
+  ): Promise<{ rows: unknown[] }> {
     const result = await this.runner.executeQuery(
       CompiledQuery.raw(text, values),
     );
@@ -47,7 +50,9 @@ async function setupSchema() {
   await kysely.schema
     .createTable("users")
     .ifNotExists()
-    .addColumn("id", "uuid", (cb) => cb.primaryKey().defaultTo(crypto.randomUUID()))
+    .addColumn("id", "uuid", (cb) =>
+      cb.primaryKey().defaultTo(crypto.randomUUID()),
+    )
     .addColumn("email", "varchar(255)", (cb) => cb.unique().notNull())
     .addColumn("created_at", "timestamp", (cb) =>
       cb.notNull().defaultTo("now()"),
@@ -76,7 +81,7 @@ async function registerUser() {
 
   // Start the new instance. It will see the schema is already there.
   await boss.start();
-  console.log(`Is pg-boss installed: ${await boss.isInstalled()}`)
+  console.log(`Is pg-boss installed: ${await boss.isInstalled()}`);
 
   const queue = "userQueue";
   await boss.createQueue(queue);
