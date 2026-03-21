@@ -6,6 +6,9 @@ import type { IEventBus } from "../../domains/shared/IEventBus.ts";
 /**
  * PgBossEventBus implements IEventBus using pg-boss as the backing store.
  *
+ * Queue naming convention: `{subscriberName}.{eventName}` — e.g. "notification.user.registered"
+ * This convention is encapsulated here; domain callers pass subscriberName and never see queue names.
+ *
  * Key property: publish() accepts an optional { db: IDbClient } option.
  * When provided, pg-boss inserts the job row using that IDbClient's runner
  * (which wraps an active transaction). This makes the event publish atomic
@@ -28,11 +31,18 @@ export class PgBossEventBus implements IEventBus {
   async subscribe<K extends keyof DomainEventMap>(
     event: K,
     handler: (payload: DomainEventMap[K]) => Promise<void>,
+    subscriberName: string,
   ): Promise<void> {
-    // pg-boss v12: work() polls the queue and calls handler with each job
-    await this.boss.work(event, async ([job]) => {
-      if (!job) throw new Error(`No job received for queue: ${event}`);
+    // Queue naming convention lives here — callers never construct queue names
+    const queueName = `${subscriberName}.${event}`;
+    // Create the queue first — pg-boss subscription table has FK to queue names
+    await this.boss.createQueue(queueName);
+    console.log(`[infra] Queue created: ${queueName}`);
+    // Register the worker on the subscriber-specific queue
+    await this.boss.work(queueName, async ([job]) => {
+      if (!job) throw new Error(`No job received for queue: ${queueName}`);
       await handler(job.data as DomainEventMap[K]);
     });
+    console.log(`[infra] Worker registered: ${queueName}`);
   }
 }

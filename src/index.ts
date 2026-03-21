@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   // 1. Set up database schema
   await setupSchema();
 
-  // 2. Start pg-boss singleton (creates all known queues)
+  // 2. Start pg-boss singleton (queue lifecycle managed in PgBossEventBus.subscribe())
   const boss = await createBoss();
 
   // 3. Create the event bus (implements IEventBus)
@@ -29,10 +29,13 @@ async function main(): Promise<void> {
   const userRepo = new UserRepository();
   const userService = new UserService(userRepo, eventBus);
 
-  // 5. Wire notification domain worker — registers BEFORE server starts
+  // 5. Subscribe notification worker — createQueue + work happen inside subscribe(), BEFORE listen()
+  //    Boot order: start → createQueue → work → listen (no HTTP until all subscriptions ready)
   const notificationService = new NotificationService();
-  await eventBus.subscribe("user.registered", (payload) =>
-    notificationService.handleUserRegistered(payload),
+  await eventBus.subscribe(
+    "user.registered",
+    (payload) => notificationService.handleUserRegistered(payload),
+    "notification",
   );
   console.log("[app] user.registered worker registered.");
 
