@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: pg-boss Native Pub/Sub + Fan-Out
-status: complete
-stopped_at: Phase 7 complete — VERI-01 human-verified and approved; v1.1 milestone shipped
-last_updated: "2026-03-21T15:06:00.000Z"
+milestone_name: pg-boss Native Pub/Sub + Fan-Out — SHIPPED 2026-03-21
+status: unknown
+stopped_at: Phase 7 complete — VERI-01 human-verified; v1.1 milestone shipped
+last_updated: "2026-03-21T15:22:37.594Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -19,12 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** v1.1 milestone complete — all 12 requirements shipped, all 7 plans verified
+**Current focus:** Planning next milestone — run `/gsd-new-milestone` to start v1.2 / v2.0 cycle
 
 ## Current Position
 
-Phase: 7
-Plan: Complete (all plans done)
+Between milestones. v1.1 archived 2026-03-21. Ready for next milestone planning.
 
 ## Previous Milestone: v1.0 MVP — Shipped 2026-03-21
 
@@ -76,7 +75,7 @@ None. (Previous blocker "Old v1.0 dev data" is resolved — v1.1 queues use new 
 - 2026-03-21: v1.0 milestone complete — all requirements shipped
 - 2026-03-21: v1.1 milestone started — migrating to pg-boss native pub/sub + fan-out
 - 2026-03-21: v1.1 roadmap created — Phases 5-7 defined; 12/12 requirements mapped
-- 2026-03-21: v1.1 milestone complete — all 12 requirements shipped; rollback regression human-verified
+- 2026-03-21: v1.1 milestone archived — ROADMAP.md collapsed, REQUIREMENTS.md archived to milestones/, PROJECT.md evolved, RETROSPECTIVE.md updated
 
 ## Session Continuity
 

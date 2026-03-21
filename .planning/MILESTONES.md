@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.1 pg-boss Native Pub/Sub + Fan-Out (Shipped: 2026-03-21)
+
+**Phases completed:** 3 phases, 7 plans, 12 tasks
+
+**Key accomplishments:**
+
+- Required `subscriberName: string` added to `IEventBus.subscribe()`, and `boss.ts` stripped to a bare PgBoss factory with no queue management
+- `PgBossEventBus.subscribe()` derives queue name as `{subscriberName}.{eventName}` and runs `createQueue` before `work`; `index.ts` passes `'notification'` as subscriberName with FK-safe boot order
+- `PgBossEventBus.publish()` migrated from `boss.send()` to `boss.publish()`, and `subscribe()` now uses the full 3-step `createQueue → boss.subscribe → boss.work` setup enabling native pg-boss fan-out
+- `AuditService` created in `src/domains/audit/` as a pure domain class with no pg-boss dependency — logs audit entries for `user.registered` events, proving domain/infra boundary holds for new subscribers
+- `AuditService` wired into `index.ts` as a second subscriber to `user.registered`; end-to-end fan-out verified — a single `POST /users` produces console logs from both `NotificationService` and `AuditService`
+- One-liner:
+- One-liner:
+
+---
+
 ## v1.0 MVP (Shipped: 2026-03-21)
 
 **Phases completed:** 4 phases, 9 plans, 14 tasks

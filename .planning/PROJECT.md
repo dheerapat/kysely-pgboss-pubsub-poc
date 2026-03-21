@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven and demonstrated end-to-end with a working HTTP API, rollback demo, and annotated README.
+A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events, with a third observer (AuditService) proving native fan-out. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven and demonstrated end-to-end with a working HTTP API, rollback demo, and annotated README.
 
 ## Core Value
 
@@ -17,11 +17,6 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ Single `PgBoss` instance initialized at boot, schema installed once, all queues created before publish/subscribe — v1.0
 - ✓ `DomainEventMap` type in shared domain layer: typed contract between publishers and subscribers — v1.0
 - ✓ `IEventBus` interface in shared domain layer: domain code depends only on this, never on pg-boss directly — v1.0
-- ✓ `PgBossEventBus` implements `IEventBus` via `boss.send()` with optional `{ db: IDbClient }` for transactional routing — v1.0
-- ✓ `PgBossEventBus.publish()` migrated to `boss.publish()` — native fan-out to all subscribed queues — v1.1 (Validated in Phase 06: PgBossEventBus Migration + Fan-Out Wiring)
-- ✓ `PgBossEventBus.subscribe()` uses 3-step `createQueue → boss.subscribe → boss.work` setup — v1.1 (Validated in Phase 06)
-- ✓ `AuditService` added as second independent subscriber for `user.registered` — pure domain class, no pg-boss imports — v1.1 (Validated in Phase 06)
-- ✓ Fan-out proven end-to-end: single `boss.publish()` fires both `NotificationService` and `AuditService` handlers — v1.1 (Validated in Phase 06)
 - ✓ `IDbClient` structural interface in domain layer: eliminates KyselyAdapter import from IEventBus, clean domain/infra boundary — v1.0
 - ✓ `UserId` and `Email` branded value objects with format validation — v1.0
 - ✓ `User` entity: private constructor, static factory, immutable after creation — v1.0
@@ -36,50 +31,50 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ `POST /users` with duplicate email returns HTTP 409 (transaction rolled back, no job created) — v1.0
 - ✓ Console logs show the full sequence: tx opened → INSERT → job created (same tx) → tx committed → worker fired → handler executed — v1.0
 - ✓ README documents pattern thesis, folder structure, and annotated curl commands for happy path and rollback demo — v1.0
-
-## Current Milestone: v1.1 pg-boss Native Pub/Sub + Fan-Out
-
-**Goal:** Replace queue-based `boss.send()`/`boss.work()` with pg-boss native pub/sub (`boss.publish()`/`boss.subscribe()`) and demonstrate fan-out by routing one `user.registered` event to multiple independent subscribers.
-
-**Target features:**
-- Migrate `PgBossEventBus.publish()` from `boss.send()` to `boss.publish()`
-- Migrate `PgBossEventBus.subscribe()` from `boss.work()` (direct queue) to `boss.subscribe()` + `boss.work()` (channel → queue fan-out)
-- Add second subscriber for `user.registered` (e.g. AuditService) to prove fan-out
-- Preserve `{ db?: IDbClient }` transactional option (boss.publish supports it)
-- Update README to document pub/sub pattern and fan-out
+- ✓ `IEventBus.subscribe()` requires a `subscriberName: string` parameter — TypeScript enforces subscriber identity at every call site — v1.1
+- ✓ Queue naming convention (`{subscriberName}.{eventName}`) encapsulated in `PgBossEventBus` — domain code never constructs queue names — v1.1
+- ✓ `boss.ts` stripped to a bare PgBoss factory; `KNOWN_QUEUES` removed — queue lifecycle moves to `PgBossEventBus.subscribe()` — v1.1
+- ✓ `boss.on('error', ...)` error handler preserved after `boss.ts` refactor — v1.1
+- ✓ Boot sequence enforces `start → createQueue → subscribe → work → listen` — FK-safe ordering, HTTP only after all subscriptions ready — v1.1
+- ✓ `PgBossEventBus.publish()` migrated to `boss.publish()` — native fan-out to all subscribed queues via `pgboss.subscription` table — v1.1
+- ✓ `PgBossEventBus.subscribe()` uses 3-step `createQueue → boss.subscribe → boss.work` setup — v1.1
+- ✓ `AuditService` added as second independent subscriber for `user.registered` — pure domain class, no pg-boss imports — v1.1
+- ✓ Fan-out proven end-to-end: single `boss.publish()` fires both `NotificationService` and `AuditService` handlers — v1.1
+- ✓ Rollback regression confirmed with two subscriber queues: duplicate email → HTTP 409, zero jobs in both queues — v1.1
+- ✓ README documents pub/sub vs queue-based approach, `pgboss.subscription` table role, fan-out mechanism, boot sequence rationale — v1.1
+- ✓ `PgBossEventBus` inline comment documents `{ db }` partial-transaction semantics (subscription lookup uses pool; job INSERTs use transaction) — v1.1
 
 ### Active
 
-- [x] Migrate `PgBossEventBus` to use `boss.publish()` for event publishing
-- [x] Migrate `PgBossEventBus` to use `boss.subscribe()` + `boss.work()` for subscriptions
-- [x] Add `AuditService` (second subscriber) to demonstrate fan-out on `user.registered`
-- [x] Update boot sequence to register pub/sub channel subscriptions before server start
-- [ ] Update README to document pub/sub vs queue-based approach and fan-out pattern
+*(No active requirements — planning for next milestone via `/gsd-new-milestone`)*
 
 ### Out of Scope
 
 - Authentication/authorization — not relevant to the event-driven pattern
 - Real email sending — notification handler logs; sending hides the pattern
-- Multiple event types beyond `user.registered` in v1 — one clear example is better than many shallow ones
+- Multiple event types beyond `user.registered` — one clear example is better than many shallow ones
 - Separate message broker (Kafka, RabbitMQ, Redis Streams) — explicitly excluded; pg-boss replaces them for this use case
 - Outbox pattern — the transactional adapter makes it unnecessary
 - Full CQRS — over-engineering; query/command split adds noise
 - Event sourcing / event replay — pg-boss is a job queue, not an event store
 - Sagas / process managers — too complex for a two-domain POC
+- pg-boss version upgrade — 12.5.4 has all required pub/sub APIs
+- Dead letter queue demo — separate concern; failure visibility is v2+
+- `@pg-boss/dashboard` — useful for teaching but not essential to prove fan-out
 
 ## Context
 
-**Status:** v1.0 shipped 2026-03-21. v1.1 Phase 06 complete — pub/sub migration + fan-out wiring done. Phase 07 (Documentation & Verification) remaining.
+**Status:** v1.0 and v1.1 both shipped 2026-03-21. All milestones complete — pub/sub migration, fan-out demo, rollback regression, and README all verified end-to-end.
 
 **Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
 
-**Codebase:** ~475 LOC TypeScript (src/), clean folder-per-domain structure. Tests via bun:test.
+**Codebase:** ~510 LOC TypeScript (src/), clean folder-per-domain structure. Tests via bun:test.
 
-**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created.
+**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created. Native pub/sub (`boss.publish`) fans out to all subscribed queues automatically via the `pgboss.subscription` table — no manual routing needed.
 
 **v2 ideas (not planned):**
 - V2-01: Second event type (e.g. `user.deactivated`) to show multi-event support
-- V2-02: Multiple handlers for one event (fan-out) — welcome email + analytics log from `user.registered`
+- V2-02: Third subscriber (metrics/counter) for more dramatic fan-out proof
 - V2-03: Dead letter queue / retry configuration visible in demo
 - V2-04: `Order` domain for a more complex cross-domain flow
 
@@ -90,12 +85,16 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 | pg-boss over external broker | Same DB = atomic tx; no broker infra to manage | ✓ Good — core thesis demonstrated cleanly |
 | Typed `DomainEventMap` event contract | Domain code must not depend on pg-boss directly | ✓ Good — TypeScript catches mismatched event names at compile time |
 | `IDbClient` structural interface in domain layer | `IEventBus` originally imported `KyselyAdapter` — infra leak | ✓ Good — structural typing means zero call-site changes, clean boundary |
-| `boss.send()` over `boss.publish()` | Both accept `{ db }`, but queue-based send is simpler with pre-created KNOWN_QUEUES | ✓ Good — works identically for the POC |
+| `boss.send()` in v1.0, `boss.publish()` in v1.1 | Queue-based send simpler for v1.0; migrated cleanly to native pub/sub in v1.1 | ✓ Good — staged migration, zero call-site changes outside PgBossEventBus |
 | Branded types (unique symbol) for value objects | Zero runtime overhead vs class wrappers; TypeScript nominal typing at compile time | ✓ Good — clean and idiomatic |
 | `Transaction<Database>` in `IUserRepository.save()` | Minimum infra touch needed for atomicity; no other Kysely types leak into domain | ✓ Good — pragmatic; alternative `tx: unknown` loses type safety |
 | Folder-per-domain (not package-per-domain) | POC clarity; less tooling overhead | ✓ Good — boundaries clear without monorepo complexity |
 | Elysia for HTTP | Bun-native, lightweight, minimal boilerplate | ✓ Good — worker subscription before `.listen()` avoids race conditions |
 | Catch `err.code === "23505"` at HTTP layer | Sufficient for POC; no custom error class needed | ✓ Good — direct and readable |
+| `subscriberName` required (not optional) in `IEventBus.subscribe()` | Optional would allow silent fan-out breakage where two subscribers derive the same queue name | ✓ Good — TypeScript enforcement at every call site |
+| Queue lifecycle in `PgBossEventBus.subscribe()` not `boss.ts` | Callers never construct queue names; naming convention lives in one place | ✓ Good — AuditService wired in 3 lines with zero queue knowledge |
+| `boss.publish()` for fan-out | Routes to all subscribers via `pgboss.subscription` table automatically | ✓ Good — zero routing code in domain layer; fan-out is a pg-boss concern |
+| Boot order: `createQueue → boss.subscribe → boss.work` before `app.listen()` | FK constraint on `pgboss.subscription` requires this ordering; HTTP before subscriptions → silent event loss | ✓ Good — enforced in index.ts; no race conditions |
 
 ## Constraints
 
@@ -122,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 06 completion*
+*Last updated: 2026-03-21 after v1.1 milestone completion*
