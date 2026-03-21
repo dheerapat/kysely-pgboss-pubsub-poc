@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-status: milestone_complete
+milestone: v1.1
+milestone_name: pg-boss Native Pub/Sub + Fan-Out
+status: defining_requirements
 last_updated: "2026-03-21T12:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -18,9 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** v1.0 milestone complete — planning next milestone
+**Current focus:** v1.1 milestone — defining requirements
 
-## Phase Status
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v1.1 started
+
+## Previous Milestone: v1.0 MVP — Shipped 2026-03-21
 
 | Phase | Name | Status | Plans | Progress |
 |-------|------|--------|-------|----------|
@@ -29,9 +36,14 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 | 3 | Notification Domain + HTTP API | ✓ Complete | 2/2 | 100% |
 | 4 | Rollback Demo + README | ✓ Complete | 1/1 | 100% |
 
-## Milestone v1.0 — Shipped 2026-03-21
+Archived to `.planning/milestones/v1.0-ROADMAP.md`.
 
-All 4 phases, 9 plans, 14 tasks complete. Archived to `.planning/milestones/v1.0-ROADMAP.md`.
+## Accumulated Context
+
+- pg-boss pub/sub API: `boss.publish(event, data, opts?)` and `boss.subscribe(event, queueName)` + `boss.work(queueName, handler)`
+- `SendOptions` includes `db?: IDatabase` — transactional routing preserved in pub/sub
+- Fan-out: each subscriber registers its own named queue via `boss.subscribe(event, queueName)`, then polls it with `boss.work(queueName, handler)`
+- Existing `IEventBus` interface and `DomainEventMap` contract require no changes
 
 ## Log
 
@@ -42,3 +54,4 @@ All 4 phases, 9 plans, 14 tasks complete. Archived to `.planning/milestones/v1.0
 - 2026-03-20: Phase 02 plan 02 complete — UserRepository (Kysely), UserService (atomic tx), composition root wired
 - 2026-03-21: Phase 01 plan 04 complete — IDbClient boundary fix (gap closure)
 - 2026-03-21: v1.0 milestone complete — all requirements shipped, archived to milestones/
+- 2026-03-21: v1.1 milestone started — migrating to pg-boss native pub/sub + fan-out

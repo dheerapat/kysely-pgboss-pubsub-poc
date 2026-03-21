@@ -33,9 +33,24 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ Console logs show the full sequence: tx opened → INSERT → job created (same tx) → tx committed → worker fired → handler executed — v1.0
 - ✓ README documents pattern thesis, folder structure, and annotated curl commands for happy path and rollback demo — v1.0
 
+## Current Milestone: v1.1 pg-boss Native Pub/Sub + Fan-Out
+
+**Goal:** Replace queue-based `boss.send()`/`boss.work()` with pg-boss native pub/sub (`boss.publish()`/`boss.subscribe()`) and demonstrate fan-out by routing one `user.registered` event to multiple independent subscribers.
+
+**Target features:**
+- Migrate `PgBossEventBus.publish()` from `boss.send()` to `boss.publish()`
+- Migrate `PgBossEventBus.subscribe()` from `boss.work()` (direct queue) to `boss.subscribe()` + `boss.work()` (channel → queue fan-out)
+- Add second subscriber for `user.registered` (e.g. AuditService) to prove fan-out
+- Preserve `{ db?: IDbClient }` transactional option (boss.publish supports it)
+- Update README to document pub/sub pattern and fan-out
+
 ### Active
 
-*(No active requirements — this is a completed POC. See v2 ideas in Context for potential future work.)*
+- [ ] Migrate `PgBossEventBus` to use `boss.publish()` for event publishing
+- [ ] Migrate `PgBossEventBus` to use `boss.subscribe()` + `boss.work()` for subscriptions
+- [ ] Add `AuditService` (second subscriber) to demonstrate fan-out on `user.registered`
+- [ ] Update boot sequence to register pub/sub channel subscriptions before server start
+- [ ] Update README to document pub/sub vs queue-based approach and fan-out pattern
 
 ### Out of Scope
 
@@ -85,5 +100,22 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - **Scope:** POC clarity over production robustness — patterns must be clear and readable
 - **TypeScript:** Strict mode, full type safety on the event bus (event name → payload type mapping)
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-21 after v1.0 milestone*
+*Last updated: 2026-03-21 after v1.1 milestone start*
