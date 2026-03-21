@@ -52,7 +52,7 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Create servicesPlugin (decorates all wired deps onto context, TYPE-01 satisfied)
+- [x] 08-01-PLAN.md — Create servicesPlugin (decorates all wired deps onto context, TYPE-01 satisfied)
 - [ ] 08-02-PLAN.md — Create workersPlugin + userRoutesPlugin (subscriptions + typed route handlers)
 
 ### Phase 9: Composition Root

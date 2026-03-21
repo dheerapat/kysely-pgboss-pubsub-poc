@@ -9,7 +9,7 @@ Requirements for the Elysia Decorate Refactor milestone. Zero behavioral changes
 
 ### Plugin Architecture
 
-- [ ] **PLUG-01**: Developer can find a single `servicesPlugin` file that decorates all wired dependencies (pool, boss, eventBus, userRepo, userService, notificationService, auditService) onto Elysia context via `.decorate()`
+- [x] **PLUG-01**: Developer can find a single `servicesPlugin` file that decorates all wired dependencies (pool, boss, eventBus, userRepo, userService, notificationService, auditService) onto Elysia context via `.decorate()`
 - [ ] **PLUG-02**: Developer can find a single `workersPlugin` that registers all event bus subscriptions (`NotificationService`, `AuditService`) with the same boot ordering as today
 - [ ] **PLUG-03**: Developer can find a single `userRoutesPlugin` that defines `/users` GET and POST handlers using context-injected services (no closure over outer variables)
 
@@ -21,7 +21,7 @@ Requirements for the Elysia Decorate Refactor milestone. Zero behavioral changes
 
 ### Type Safety
 
-- [ ] **TYPE-01**: Route handlers access decorated services with full TypeScript type inference (no `any` casts required at call sites)
+- [x] **TYPE-01**: Route handlers access decorated services with full TypeScript type inference (no `any` casts required at call sites)
 
 ## Future Requirements
 
@@ -46,13 +46,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLUG-01 | Phase 8 | Pending |
+| PLUG-01 | Phase 8 | Complete |
 | PLUG-02 | Phase 8 | Pending |
 | PLUG-03 | Phase 8 | Pending |
 | ROOT-01 | Phase 9 | Pending |
 | ROOT-02 | Phase 9 | Pending |
 | ROOT-03 | Phase 9 | Pending |
-| TYPE-01 | Phase 8 | Pending |
+| TYPE-01 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 7 total
