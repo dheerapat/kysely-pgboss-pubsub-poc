@@ -78,7 +78,12 @@ Plans:
   2. `PgBossEventBus.subscribe()` performs the 3-step setup: `createQueue` → `boss.subscribe` → `boss.work` using the derived subscriber queue name
   3. `POST /users` with a new email produces console logs from **both** `NotificationService` and `AuditService` in a single run
   4. `AuditService` is a pure domain class with no pg-boss imports, mirroring the `NotificationService` pattern
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Migrate `PgBossEventBus`: `boss.send()` → `boss.publish()`, add `boss.subscribe()` to 3-step setup
+- [ ] 06-02-PLAN.md — Create `AuditService` pure domain handler (second subscriber)
+- [ ] 06-03-PLAN.md — Wire `AuditService` in `index.ts` + fan-out end-to-end verification
 
 ### Phase 7: Documentation & Verification
 **Goal**: The rollback regression is confirmed intact with two subscriber queues, and the README accurately documents the pub/sub model, fan-out mechanism, and boot sequence rationale.
