@@ -1,7 +1,7 @@
 ---
 phase: 01-infrastructure-foundation
 status: passed
-verified: 2026-03-20
+verified: 2026-03-21
 verifier: inline (OpenCode sequential)
 ---
 
@@ -58,13 +58,15 @@ Phase goal: "Establish the shared infrastructure layer — database connection, 
 | `publish<K extends keyof DomainEventMap>` generic | ✓ PASS |
 | `subscribe<K extends keyof DomainEventMap>` generic | ✓ PASS |
 | No `pg-boss` import in `src/domains/shared/` | ✓ PASS |
+| No `infrastructure` import in `src/domains/shared/` (gap closure 01-04) | ✓ PASS |
+| `IDbClient` structural interface in `src/domains/shared/IDbClient.ts` | ✓ PASS |
 
 ### INFRA-06: PgBossEventBus implements IEventBus with transactional publish
 
 | Check | Result |
 |-------|--------|
 | `PgBossEventBus implements IEventBus` (TypeScript enforced) | ✓ PASS |
-| `publish()` accepts `opts?: { db?: KyselyAdapter }` | ✓ PASS |
+| `publish()` accepts `opts?: { db?: IDbClient }` (gap closure 01-04) | ✓ PASS |
 | `opts.db` routed to `boss.send(event, payload, { db: opts.db })` | ✓ PASS |
 | `subscribe()` uses `boss.work(event, handler)` | ✓ PASS |
 
@@ -119,15 +121,16 @@ This is a runtime-only check (not required for TypeScript verification). All sta
 | `src/infrastructure/db/KyselyAdapter.ts` | ✓ Created | pg-boss db bridge |
 | `src/infrastructure/db/schema.ts` | ✓ Created | setupSchema() DDL |
 | `src/domains/shared/events.ts` | ✓ Created | DomainEventMap type |
-| `src/domains/shared/IEventBus.ts` | ✓ Created | IEventBus interface |
+| `src/domains/shared/IDbClient.ts` | ✓ Created (01-04) | Structural db client interface |
+| `src/domains/shared/IEventBus.ts` | ✓ Created | IEventBus interface (uses IDbClient) |
 | `src/infrastructure/events/boss.ts` | ✓ Created | createBoss() + KNOWN_QUEUES |
 | `src/infrastructure/events/PgBossEventBus.ts` | ✓ Created | PgBossEventBus class |
 | `src/index.ts` | ✓ Created | Composition root |
 
 ## Gaps Found
 
-None.
+None. (Gap identified in UAT test 3 — domain/infrastructure boundary violation in IEventBus — resolved by gap closure plan 01-04.)
 
 ---
-*Verified: 2026-03-20*
+*Verified: 2026-03-21*
 *Phase: 01-infrastructure-foundation*
