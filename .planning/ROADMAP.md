@@ -49,7 +49,11 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
   2. A `workersPlugin` file exists that contains all `eventBus.subscribe()` calls previously in `index.ts` — no subscription wiring lives outside it
   3. A `userRoutesPlugin` file exists with `/users` GET and POST handlers that reference services via `context` properties, not closure over outer variables
   4. TypeScript infers decorated service types in route handlers with no `any` casts — the compiler rejects an incorrect context property access
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Create servicesPlugin (decorates all wired deps onto context, TYPE-01 satisfied)
+- [ ] 08-02-PLAN.md — Create workersPlugin + userRoutesPlugin (subscriptions + typed route handlers)
 
 ### Phase 9: Composition Root
 **Goal**: `src/index.ts` is a pure composition root — it imports and composes the three plugins, enforces correct boot order, and starts the server; zero instantiation or subscription wiring lives inline
