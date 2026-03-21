@@ -62,3 +62,13 @@ function main(): void {
 }
 
 main();
+
+/*
+load testing with oha
+
+oha -n 1000 -c 50 \
+  -m POST \
+  -H "Content-Type: application/json" \
+  -Z bodies.jsonl \
+  http://localhost:3000/users
+*/
