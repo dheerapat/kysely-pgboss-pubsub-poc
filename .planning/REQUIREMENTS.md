@@ -74,7 +74,7 @@
 **Coverage:**
 - v1.1 requirements: 12 total
 - Mapped to phases: 12
-- Unmapped: 0 ✓ (traceability will be finalized by roadmapper)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-21*
