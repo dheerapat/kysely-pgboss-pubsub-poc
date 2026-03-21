@@ -1,9 +1,9 @@
 ---
-status: complete
+status: resolved
 phase: 01-infrastructure-foundation
-source: [01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md]
+source: [01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md, 01-04-SUMMARY.md]
 started: 2026-03-20T00:00:00Z
-updated: 2026-03-20T00:05:00Z
+updated: 2026-03-21T06:10:00Z
 ---
 
 ## Current Test
@@ -45,18 +45,8 @@ skipped: 0
 ## Gaps
 
 - truth: "src/domains/shared/IEventBus.ts contains zero infrastructure imports — domain layer stays infrastructure-agnostic"
-  status: failed
+  status: resolved
   reason: "User reported: file src/domains/shared/IEventBus.ts has import KyselyAdapter"
+  resolved_by: "Plan 01-04 gap closure — IDbClient interface created in domain layer; IEventBus.ts and PgBossEventBus.ts updated to use IDbClient; KyselyAdapter import removed from domain layer"
   severity: minor
   test: 3
-  root_cause: "IEventBus.ts (domain layer) directly names the concrete KyselyAdapter class from infrastructure as the type for opts.db, when all that is needed is a structural interface (IDbClient) describing one method — executeSql — which KyselyAdapter already satisfies via TypeScript structural typing"
-  artifacts:
-    - path: "src/domains/shared/IEventBus.ts"
-      issue: "imports KyselyAdapter from infrastructure — violates domain/infrastructure separation"
-    - path: "src/infrastructure/events/PgBossEventBus.ts"
-      issue: "will need opts.db type updated to IDbClient to match interface"
-  missing:
-    - "Create src/domains/shared/IDbClient.ts — minimal structural interface with executeSql() method, no infrastructure imports"
-    - "Update src/domains/shared/IEventBus.ts — replace KyselyAdapter import with IDbClient from ./IDbClient.ts"
-    - "Update src/infrastructure/events/PgBossEventBus.ts — replace KyselyAdapter type with IDbClient in publish() signature"
-  debug_session: ""
