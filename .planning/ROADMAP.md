@@ -53,7 +53,7 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 Plans:
 - [x] 08-01-PLAN.md — Create servicesPlugin (decorates all wired deps onto context, TYPE-01 satisfied)
-- [ ] 08-02-PLAN.md — Create workersPlugin + userRoutesPlugin (subscriptions + typed route handlers)
+- [x] 08-02-PLAN.md — Create workersPlugin + userRoutesPlugin (subscriptions + typed route handlers)
 
 ### Phase 9: Composition Root
 **Goal**: `src/index.ts` is a pure composition root — it imports and composes the three plugins, enforces correct boot order, and starts the server; zero instantiation or subscription wiring lives inline
