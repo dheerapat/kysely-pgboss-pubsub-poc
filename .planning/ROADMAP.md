@@ -63,7 +63,11 @@ Plans:
   3. Boot sequence in `index.ts` follows `start → createQueue → subscribe → work → listen` with no HTTP traffic accepted before all subscriptions are registered
   4. `boss.on('error', ...)` handler is present after the `boss.ts` refactor and errors surface to console
   5. Queue naming convention (`{subscriberName}.{eventName}`) lives entirely inside `PgBossEventBus` — no caller passes a queue name
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Interface contract: `IEventBus.subscribe()` + `boss.ts` cleanup
+- [ ] 05-02-PLAN.md — `PgBossEventBus.subscribe()` impl + `index.ts` boot wiring
 
 ### Phase 6: PgBossEventBus Migration + Fan-Out Wiring
 **Goal**: `PgBossEventBus` uses `boss.publish()`/`boss.subscribe()` and two independent subscribers (`NotificationService` + `AuditService`) both fire when a single `user.registered` event is published.
