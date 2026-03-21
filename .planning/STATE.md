@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: unknown
-last_updated: "2026-03-21T05:56:47.972Z"
+milestone_name: MVP
+status: milestone_complete
+last_updated: "2026-03-21T12:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -15,28 +15,23 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-20)
+See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Phase 01 — infrastructure-foundation
+**Current focus:** v1.0 milestone complete — planning next milestone
 
 ## Phase Status
 
 | Phase | Name | Status | Plans | Progress |
 |-------|------|--------|-------|----------|
-| 1 | Infrastructure Foundation | ✓ Complete | 3/3 | 100% |
+| 1 | Infrastructure Foundation | ✓ Complete | 4/4 | 100% |
 | 2 | User Domain | ✓ Complete | 2/2 | 100% |
-| 3 | Notification Domain + HTTP API | ○ Pending | 0/0 | 0% |
-| 4 | Rollback Demo + README | ○ Pending | 0/0 | 0% |
+| 3 | Notification Domain + HTTP API | ✓ Complete | 2/2 | 100% |
+| 4 | Rollback Demo + README | ✓ Complete | 1/1 | 100% |
 
-## Decisions
+## Milestone v1.0 — Shipped 2026-03-21
 
-- **02-user-domain-01**: `Transaction<Database>` in IUserRepository — minimal infra touch enabling atomicity without leaking Kysely instance types into domain
-- **02-user-domain-01**: Branded types via unique symbol chosen over class wrappers for zero runtime overhead; nominal typing at compile time
-- [Phase 02-user-domain]: UserService owns transaction, UserRepository receives tx as param — clean layer separation
-- [Phase 02-user-domain]: KyselyAdapter(tx) bridges Kysely transaction to pg-boss job insertion — achieving INSERT+job atomicity
-- [Phase 03]: Worker subscription registered BEFORE .listen() — ensures no HTTP requests arrive before pg-boss worker is ready
-- [Phase 03]: Elysia chosen for HTTP server — minimal overhead, Bun-native, set.status=201 pattern for HTTP 201 on POST /users
+All 4 phases, 9 plans, 14 tasks complete. Archived to `.planning/milestones/v1.0-ROADMAP.md`.
 
 ## Log
 
@@ -45,3 +40,5 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - 2026-03-20: Roadmap created (4 phases)
 - 2026-03-20: Phase 02 plan 01 complete — UserId, Email, User, IUserRepository domain layer
 - 2026-03-20: Phase 02 plan 02 complete — UserRepository (Kysely), UserService (atomic tx), composition root wired
+- 2026-03-21: Phase 01 plan 04 complete — IDbClient boundary fix (gap closure)
+- 2026-03-21: v1.0 milestone complete — all requirements shipped, archived to milestones/
