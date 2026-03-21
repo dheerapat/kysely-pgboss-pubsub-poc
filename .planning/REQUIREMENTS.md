@@ -26,9 +26,9 @@
 
 ### Verification & Docs
 
-- [ ] **VERI-01**: Duplicate email `POST /users` returns HTTP 409 with zero jobs created in both subscriber queues (rollback regression)
-- [ ] **VERI-02**: README documents the pub/sub model, subscription table role, fan-out mechanism, and boot sequence rationale
-- [ ] **VERI-03**: `PgBossEventBus` has a comment documenting `{ db }` partial-transaction semantics (subscription lookup uses pool; job INSERTs use transaction)
+- [x] **VERI-01**: Duplicate email `POST /users` returns HTTP 409 with zero jobs created in both subscriber queues (rollback regression)
+- [x] **VERI-02**: README documents the pub/sub model, subscription table role, fan-out mechanism, and boot sequence rationale
+- [x] **VERI-03**: `PgBossEventBus` has a comment documenting `{ db }` partial-transaction semantics (subscription lookup uses pool; job INSERTs use transaction)
 
 ## Future Requirements
 
@@ -67,9 +67,9 @@
 | BOOT-03 | Phase 5 | Complete |
 | FOUT-01 | Phase 6 | Pending |
 | FOUT-02 | Phase 6 | Pending |
-| VERI-01 | Phase 7 | Pending |
-| VERI-02 | Phase 7 | Pending |
-| VERI-03 | Phase 7 | Pending |
+| VERI-01 | Phase 7 | Complete |
+| VERI-02 | Phase 7 | Complete |
+| VERI-03 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 12 total

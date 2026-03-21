@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: pg-boss Native Pub/Sub + Fan-Out
 status: unknown
-stopped_at: Completed 05-01-PLAN.md and 05-02-PLAN.md — Phase 5 Boot Infrastructure & Interface Contract complete
-last_updated: "2026-03-21T14:51:37.614Z"
+stopped_at: 07-02 Task 1 complete — awaiting human verify checkpoint for VERI-01
+last_updated: "2026-03-21T15:04:27.623Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -49,6 +49,9 @@ Archived to `.planning/milestones/v1.0-ROADMAP.md`.
 - [Phase 05-01]: Queue lifecycle (createQueue, subscribe, work) moves entirely into PgBossEventBus.subscribe() — boss.ts is now a bare PgBoss factory
 - [Phase 05-02]: Queue name derivation lives inside PgBossEventBus.subscribe() — callers pass subscriberName, never queue names directly
 - [Phase 05-02]: boss.createQueue(queueName) called before boss.work(queueName) inside subscribe() — required by pg-boss FK constraint on subscription table
+- [Phase 07]: VERI-02: README 'Pub/Sub Fan-Out (v1.1)' section added covering pub/sub vs queue-based approach, pgboss.subscription table role, fan-out mechanism, and boot sequence ordering rationale
+- [Phase 07]: VERI-03: PgBossEventBus inline comment added at boss.publish() call site documenting partial-transaction semantics: subscription lookup = global pool; job INSERTs = opts.db transaction
+- [Phase 07]: VERI-01: Rollback regression verified live — HTTP 409 + zero new jobs in both notification.user.registered and audit.user.registered after duplicate email attempt
 
 ### Pending Todos
 
@@ -66,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T14:25:52.404Z
-Stopped at: Completed 05-01-PLAN.md and 05-02-PLAN.md — Phase 5 Boot Infrastructure & Interface Contract complete
+Last session: 2026-03-21T15:04:27.620Z
+Stopped at: 07-02 Task 1 complete — awaiting human verify checkpoint for VERI-01
 Resume file: None

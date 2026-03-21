@@ -96,8 +96,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — README v1.1 pub/sub documentation + VERI-03 JSDoc verification
-- [ ] 07-02-PLAN.md — Rollback regression: duplicate email → HTTP 409, zero jobs in both queues
+- [x] 07-01-PLAN.md — README v1.1 pub/sub documentation + VERI-03 JSDoc verification
+- [x] 07-02-PLAN.md — Rollback regression: duplicate email → HTTP 409, zero jobs in both queues
 
 ---
 
@@ -113,4 +113,4 @@ Plans:
 | 4. HTTP + Demo | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 5. Boot Infrastructure & Interface Contract | v1.1 | 2/2 | Complete   | 2026-03-21 |
 | 6. PgBossEventBus Migration + Fan-Out Wiring | v1.1 | 3/3 | Complete | 2026-03-21 |
-| 7. Documentation & Verification | v1.1 | 0/2 | Not started | - |
+| 7. Documentation & Verification | v1.1 | 2/2 | Complete   | 2026-03-21 |
