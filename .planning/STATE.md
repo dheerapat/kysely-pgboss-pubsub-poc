@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: pg-boss Native Pub/Sub + Fan-Out
-status: unknown
-stopped_at: 07-02 Task 1 complete — awaiting human verify checkpoint for VERI-01
-last_updated: "2026-03-21T15:04:27.623Z"
+status: complete
+stopped_at: Phase 7 complete — VERI-01 human-verified and approved; v1.1 milestone shipped
+last_updated: "2026-03-21T15:06:00.000Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Phase 06 — pgbosseventbus-migration-fan-out-wiring
+**Current focus:** v1.1 milestone complete — all 12 requirements shipped, all 7 plans verified
 
 ## Current Position
 
 Phase: 7
-Plan: Not started
+Plan: Complete (all plans done)
 
 ## Previous Milestone: v1.0 MVP — Shipped 2026-03-21
 
@@ -36,6 +36,16 @@ Plan: Not started
 | 4 | Rollback Demo + README | ✓ Complete | 1/1 | 100% |
 
 Archived to `.planning/milestones/v1.0-ROADMAP.md`.
+
+## v1.1 Milestone: pg-boss Native Pub/Sub + Fan-Out — Shipped 2026-03-21
+
+| Phase | Name | Status | Plans | Progress |
+|-------|------|--------|-------|----------|
+| 5 | Boot Infrastructure & Interface Contract | ✓ Complete | 2/2 | 100% |
+| 6 | PgBossEventBus Migration + Fan-Out Wiring | ✓ Complete | 3/3 | 100% |
+| 7 | Documentation & Verification | ✓ Complete | 2/2 | 100% |
+
+**All 12/12 v1.1 requirements complete.**
 
 ## Accumulated Context
 
@@ -55,20 +65,21 @@ Archived to `.planning/milestones/v1.0-ROADMAP.md`.
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- **Old v1.0 dev data:** Docker volumes may have stale jobs in the old `"user.registered"` queue. Run `docker compose down -v` before first v1.1 test run.
+None. (Previous blocker "Old v1.0 dev data" is resolved — v1.1 queues use new names.)
 
 ## Log
 
 - 2026-03-21: v1.0 milestone complete — all requirements shipped
 - 2026-03-21: v1.1 milestone started — migrating to pg-boss native pub/sub + fan-out
 - 2026-03-21: v1.1 roadmap created — Phases 5-7 defined; 12/12 requirements mapped
+- 2026-03-21: v1.1 milestone complete — all 12 requirements shipped; rollback regression human-verified
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:04:27.620Z
-Stopped at: 07-02 Task 1 complete — awaiting human verify checkpoint for VERI-01
+Last session: 2026-03-21T15:06:00.000Z
+Stopped at: Phase 7 complete — VERI-01 human-verified; v1.1 milestone shipped
 Resume file: None

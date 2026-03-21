@@ -8,8 +8,8 @@
 
 ### Event Bus Migration
 
-- [ ] **BUS-01**: `PgBossEventBus.publish()` uses `boss.publish()` instead of `boss.send()`
-- [ ] **BUS-02**: `PgBossEventBus.subscribe()` performs 3-step setup: `createQueue + boss.subscribe + boss.work` using derived subscriber queue name
+- [x] **BUS-01**: `PgBossEventBus.publish()` uses `boss.publish()` instead of `boss.send()`
+- [x] **BUS-02**: `PgBossEventBus.subscribe()` performs 3-step setup: `createQueue + boss.subscribe + boss.work` using derived subscriber queue name
 - [x] **BUS-03**: `IEventBus.subscribe()` requires a `subscriberName: string` parameter
 - [x] **BUS-04**: Queue naming convention is encapsulated in `PgBossEventBus` — domain code remains pg-boss-unaware
 
@@ -21,8 +21,8 @@
 
 ### Fan-Out Demo
 
-- [ ] **FOUT-01**: `AuditService` is added as a second independent subscriber for `user.registered`
-- [ ] **FOUT-02**: Console logs show the fan-out sequence: one `boss.publish()` → two independent worker fires (NotificationService + AuditService)
+- [x] **FOUT-01**: `AuditService` is added as a second independent subscriber for `user.registered`
+- [x] **FOUT-02**: Console logs show the fan-out sequence: one `boss.publish()` → two independent worker fires (NotificationService + AuditService)
 
 ### Verification & Docs
 
@@ -58,15 +58,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUS-01 | Phase 5 | Pending |
-| BUS-02 | Phase 5 | Pending |
+| BUS-01 | Phase 6 | Complete |
+| BUS-02 | Phase 6 | Complete |
 | BUS-03 | Phase 5 | Complete |
 | BUS-04 | Phase 5 | Complete |
 | BOOT-01 | Phase 5 | Complete |
 | BOOT-02 | Phase 5 | Complete |
 | BOOT-03 | Phase 5 | Complete |
-| FOUT-01 | Phase 6 | Pending |
-| FOUT-02 | Phase 6 | Pending |
+| FOUT-01 | Phase 6 | Complete |
+| FOUT-02 | Phase 6 | Complete |
 | VERI-01 | Phase 7 | Complete |
 | VERI-02 | Phase 7 | Complete |
 | VERI-03 | Phase 7 | Complete |

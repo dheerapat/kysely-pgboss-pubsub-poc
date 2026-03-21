@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** - Phases 1-4 (shipped 2026-03-21)
-- 🚧 **v1.1 pg-boss Native Pub/Sub + Fan-Out** - Phases 5-7 (in progress)
+- ✅ **v1.1 pg-boss Native Pub/Sub + Fan-Out** - Phases 5-7 (shipped 2026-03-21)
 
 ## Phases
 
@@ -45,7 +45,7 @@ Plans:
 
 </details>
 
-### 🚧 v1.1 pg-boss Native Pub/Sub + Fan-Out (In Progress)
+### ✅ v1.1 pg-boss Native Pub/Sub + Fan-Out — SHIPPED 2026-03-21
 
 **Milestone Goal:** Replace queue-based send/work with native pub/sub and prove fan-out: one `boss.publish()` → two independent subscriber fires, atomically, with rollback regression intact.
 
@@ -81,9 +81,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Migrate `PgBossEventBus`: `boss.send()` → `boss.publish()`, add `boss.subscribe()` to 3-step setup
-- [ ] 06-02-PLAN.md — Create `AuditService` pure domain handler (second subscriber)
-- [ ] 06-03-PLAN.md — Wire `AuditService` in `index.ts` + fan-out end-to-end verification
+- [x] 06-01-PLAN.md — Migrate `PgBossEventBus`: `boss.send()` → `boss.publish()`, add `boss.subscribe()` to 3-step setup
+- [x] 06-02-PLAN.md — Create `AuditService` pure domain handler (second subscriber)
+- [x] 06-03-PLAN.md — Wire `AuditService` in `index.ts` + fan-out end-to-end verification
 
 ### Phase 7: Documentation & Verification
 **Goal**: The rollback regression is confirmed intact with two subscriber queues, and the README accurately documents the pub/sub model, fan-out mechanism, and boot sequence rationale.
