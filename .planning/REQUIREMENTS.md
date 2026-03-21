@@ -46,18 +46,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLUG-01 | — | Pending |
-| PLUG-02 | — | Pending |
-| PLUG-03 | — | Pending |
-| ROOT-01 | — | Pending |
-| ROOT-02 | — | Pending |
-| ROOT-03 | — | Pending |
-| TYPE-01 | — | Pending |
+| PLUG-01 | Phase 8 | Pending |
+| PLUG-02 | Phase 8 | Pending |
+| PLUG-03 | Phase 8 | Pending |
+| ROOT-01 | Phase 9 | Pending |
+| ROOT-02 | Phase 9 | Pending |
+| ROOT-03 | Phase 9 | Pending |
+| TYPE-01 | Phase 8 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 7 total
-- Mapped to phases: 0
-- Unmapped: 7 ⚠️
+- Mapped to phases: 7 ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-21*

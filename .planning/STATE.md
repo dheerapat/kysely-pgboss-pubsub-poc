@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Elysia Decorate Refactor
-status: defining_requirements
-stopped_at: Milestone v1.2 started — defining requirements
+status: ready_to_plan
+stopped_at: Roadmap created for v1.2 — Phase 8 (Plugin Extraction) ready to plan
 last_updated: "2026-03-21"
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,51 +19,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Defining requirements for v1.2 — Elysia Decorate Refactor
+**Current focus:** Phase 8 — Plugin Extraction (v1.2 Elysia Decorate Refactor)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-21 — Milestone v1.2 started
+Phase: 8 of 9 in v1.2 (Plugin Extraction)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-21 — v1.2 roadmap created; Phase 8 ready to plan
 
-## Previous Milestone: v1.0 MVP — Shipped 2026-03-21
+Progress: [███████░░░] 78% (7/9 total phases complete across all milestones)
 
-| Phase | Name | Status | Plans | Progress |
-|-------|------|--------|-------|----------|
-| 1 | Infrastructure Foundation | ✓ Complete | 4/4 | 100% |
-| 2 | User Domain | ✓ Complete | 2/2 | 100% |
-| 3 | Notification Domain + HTTP API | ✓ Complete | 2/2 | 100% |
-| 4 | Rollback Demo + README | ✓ Complete | 1/1 | 100% |
-
-Archived to `.planning/milestones/v1.0-ROADMAP.md`.
-
-## v1.1 Milestone: pg-boss Native Pub/Sub + Fan-Out — Shipped 2026-03-21
+## v1.2 Milestone: Elysia Decorate Refactor (In Progress)
 
 | Phase | Name | Status | Plans | Progress |
 |-------|------|--------|-------|----------|
-| 5 | Boot Infrastructure & Interface Contract | ✓ Complete | 2/2 | 100% |
-| 6 | PgBossEventBus Migration + Fan-Out Wiring | ✓ Complete | 3/3 | 100% |
-| 7 | Documentation & Verification | ✓ Complete | 2/2 | 100% |
+| 8 | Plugin Extraction | Not started | TBD | 0% |
+| 9 | Composition Root | Not started | TBD | 0% |
 
-**All 12/12 v1.1 requirements complete.**
+**0/7 v1.2 requirements complete.**
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v1.1 research]: `subscriberName` must be **required** in `IEventBus.subscribe()` — optional causes silent fan-out breakage (two subscribers derive same queue name)
-- [v1.1 research]: Boot order enforced: `start → createQueue → subscribe → work → listen` — FK constraint on `pgboss.subscription` makes this non-optional
-- [v1.1 research]: `boss.publish()` silently creates zero jobs if no subscriptions registered — subscriptions must complete before `app.listen()`
-- [v1.1 research]: `KNOWN_QUEUES` removed from `boss.ts`; queue lifecycle moves entirely into `PgBossEventBus.subscribe()`
-- [Phase 05-01]: subscriberName is REQUIRED (not optional) in IEventBus.subscribe() — optional causes silent fan-out breakage where two subscribers derive same queue name
-- [Phase 05-01]: Queue lifecycle (createQueue, subscribe, work) moves entirely into PgBossEventBus.subscribe() — boss.ts is now a bare PgBoss factory
-- [Phase 05-02]: Queue name derivation lives inside PgBossEventBus.subscribe() — callers pass subscriberName, never queue names directly
-- [Phase 05-02]: boss.createQueue(queueName) called before boss.work(queueName) inside subscribe() — required by pg-boss FK constraint on subscription table
-- [Phase 07]: VERI-02: README 'Pub/Sub Fan-Out (v1.1)' section added covering pub/sub vs queue-based approach, pgboss.subscription table role, fan-out mechanism, and boot sequence ordering rationale
-- [Phase 07]: VERI-03: PgBossEventBus inline comment added at boss.publish() call site documenting partial-transaction semantics: subscription lookup = global pool; job INSERTs = opts.db transaction
-- [Phase 07]: VERI-01: Rollback regression verified live — HTTP 409 + zero new jobs in both notification.user.registered and audit.user.registered after duplicate email attempt
+- [v1.2 scoping]: Zero behavioral changes — pure structural refactor using Elysia `.decorate()` pattern
+- [v1.2 plugin split]: 3 plugins (servicesPlugin / workersPlugin / userRoutesPlugin) + slim index.ts composition root
+- [v1.1 Phase 05]: Boot order enforced: `start → createQueue → subscribe → work → listen` — FK constraint on `pgboss.subscription` makes this non-optional
+- [v1.1 Phase 05]: Queue lifecycle moves entirely into `PgBossEventBus.subscribe()` — boss.ts is a bare PgBoss factory
 
 ### Pending Todos
 
@@ -71,17 +54,16 @@ None.
 
 ### Blockers/Concerns
 
-None. (Previous blocker "Old v1.0 dev data" is resolved — v1.1 queues use new names.)
+None — v1.1 shipped clean; refactor is additive file reorganization only.
 
 ## Log
 
 - 2026-03-21: v1.0 milestone complete — all requirements shipped
-- 2026-03-21: v1.1 milestone started — migrating to pg-boss native pub/sub + fan-out
-- 2026-03-21: v1.1 roadmap created — Phases 5-7 defined; 12/12 requirements mapped
-- 2026-03-21: v1.1 milestone archived — ROADMAP.md collapsed, REQUIREMENTS.md archived to milestones/, PROJECT.md evolved, RETROSPECTIVE.md updated
+- 2026-03-21: v1.1 milestone complete — pub/sub migration, fan-out, rollback regression, README shipped
+- 2026-03-21: v1.2 milestone started — Elysia Decorate Refactor roadmap created (Phases 8-9)
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:06:00.000Z
-Stopped at: Phase 7 complete — VERI-01 human-verified; v1.1 milestone shipped
+Last session: 2026-03-21
+Stopped at: v1.2 roadmap created — Phase 8 (Plugin Extraction) ready to plan
 Resume file: None
