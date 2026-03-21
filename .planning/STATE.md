@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: pg-boss Native Pub/Sub + Fan-Out — SHIPPED 2026-03-21
-status: unknown
-stopped_at: Phase 7 complete — VERI-01 human-verified; v1.1 milestone shipped
-last_updated: "2026-03-21T15:22:37.594Z"
+milestone: v1.2
+milestone_name: Elysia Decorate Refactor
+status: defining_requirements
+stopped_at: Milestone v1.2 started — defining requirements
+last_updated: "2026-03-21"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,11 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Planning next milestone — run `/gsd-new-milestone` to start v1.2 / v2.0 cycle
+**Current focus:** Defining requirements for v1.2 — Elysia Decorate Refactor
 
 ## Current Position
 
-Between milestones. v1.1 archived 2026-03-21. Ready for next milestone planning.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v1.2 started
 
 ## Previous Milestone: v1.0 MVP — Shipped 2026-03-21
 

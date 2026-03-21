@@ -44,9 +44,22 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ README documents pub/sub vs queue-based approach, `pgboss.subscription` table role, fan-out mechanism, boot sequence rationale — v1.1
 - ✓ `PgBossEventBus` inline comment documents `{ db }` partial-transaction semantics (subscription lookup uses pool; job INSERTs use transaction) — v1.1
 
+## Current Milestone: v1.2 Elysia Decorate Refactor
+
+**Goal:** Refactor `src/index.ts` from a monolithic wiring file into a clean composition root using Elysia's `decorate` pattern.
+
+**Target features:**
+- `servicesPlugin` decorates all wired dependencies (userRepo, userService, eventBus, notificationService, auditService) onto Elysia context
+- `workersPlugin` registers all event bus subscriptions, extracted from `index.ts`
+- `userRoutesPlugin` encapsulates `/users` GET and POST routes with context-injected services
+- `index.ts` becomes a pure composition root: imports plugins, composes them, starts server
+
 ### Active
 
-*(No active requirements — planning for next milestone via `/gsd-new-milestone`)*
+- [ ] `servicesPlugin` decorates all wired deps onto Elysia context using `.decorate()`
+- [ ] `workersPlugin` registers all `IEventBus.subscribe()` calls, extracted from `index.ts`
+- [ ] `userRoutesPlugin` encapsulates `/users` GET and POST handlers
+- [ ] `index.ts` is a pure composition root — no instantiation, no subscription wiring inline
 
 ### Out of Scope
 
@@ -121,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after v1.1 milestone completion*
+*Last updated: 2026-03-21 after v1.2 milestone start*
