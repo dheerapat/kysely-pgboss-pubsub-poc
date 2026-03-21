@@ -18,12 +18,12 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ PgBoss singleton factory + KNOWN_QUEUES boot creation — Validated in Phase 1: infrastructure-foundation
 - ✓ DomainEventMap typed event contract (user.registered payload) — Validated in Phase 1: infrastructure-foundation
 - ✓ IEventBus interface in domain layer (zero pg-boss surface) — Validated in Phase 1: infrastructure-foundation
-- ✓ PgBossEventBus implements IEventBus with transactional { db: KyselyAdapter } publish — Validated in Phase 1: infrastructure-foundation
+- ✓ PgBossEventBus implements IEventBus with transactional { db: IDbClient } publish — Validated in Phase 1: infrastructure-foundation (gap closure 01-04: IDbClient replaces KyselyAdapter in domain interface)
 - ✓ Folder-per-domain structure with clear boundaries (User domain) — Validated in Phase 2: user-domain
 - ✓ Tactical DDD patterns: UserId/Email value objects (branded types), User entity (factory, readonly, private constructor), IUserRepository interface — Validated in Phase 2: user-domain
 - ✓ User domain: register user (Kysely INSERT) + publish UserRegistered event atomically inside a single transaction — Validated in Phase 2: user-domain
 
-**Current State:** Phase 2 complete — User domain built. UserService atomically saves user and publishes UserRegistered inside a single Kysely transaction. Phase 3 (Notification Domain + HTTP API) is next.
+**Current State:** Phase 1 gap closure complete — `IDbClient` domain interface introduced, domain/infrastructure boundary fully clean. Phase 2 complete — User domain built. UserService atomically saves user and publishes UserRegistered inside a single Kysely transaction. Phase 3 (Notification Domain + HTTP API) is next.
 
 ### Active
 
@@ -64,4 +64,4 @@ This repo already has a working single-file POC (`index.ts`) demonstrating the K
 | Hono or Elysia for HTTP | Bun-native, lightweight, minimal boilerplate | — Pending |
 
 ---
-*Last updated: 2026-03-20 after Phase 2: user-domain complete*
+*Last updated: 2026-03-21 after Phase 1 gap closure complete (01-04 — IDbClient boundary fix)*
