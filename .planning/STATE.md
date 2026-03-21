@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: pg-boss Native Pub/Sub + Fan-Out
-status: ready_to_plan
-last_updated: "2026-03-21T12:30:00.000Z"
+status: planning
+stopped_at: Completed 05-01-PLAN.md and 05-02-PLAN.md — Phase 5 Boot Infrastructure & Interface Contract complete
+last_updated: "2026-03-21T14:25:52.408Z"
+last_activity: 2026-03-21 — v1.1 roadmap created; Phases 5-7 defined
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+  percent: 0
 ---
 
 # Project State
@@ -48,6 +51,10 @@ Archived to `.planning/milestones/v1.0-ROADMAP.md`.
 - [v1.1 research]: Boot order enforced: `start → createQueue → subscribe → work → listen` — FK constraint on `pgboss.subscription` makes this non-optional
 - [v1.1 research]: `boss.publish()` silently creates zero jobs if no subscriptions registered — subscriptions must complete before `app.listen()`
 - [v1.1 research]: `KNOWN_QUEUES` removed from `boss.ts`; queue lifecycle moves entirely into `PgBossEventBus.subscribe()`
+- [Phase 05-01]: subscriberName is REQUIRED (not optional) in IEventBus.subscribe() — optional causes silent fan-out breakage where two subscribers derive same queue name
+- [Phase 05-01]: Queue lifecycle (createQueue, subscribe, work) moves entirely into PgBossEventBus.subscribe() — boss.ts is now a bare PgBoss factory
+- [Phase 05-02]: Queue name derivation lives inside PgBossEventBus.subscribe() — callers pass subscriberName, never queue names directly
+- [Phase 05-02]: boss.createQueue(queueName) called before boss.work(queueName) inside subscribe() — required by pg-boss FK constraint on subscription table
 
 ### Pending Todos
 
@@ -65,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: v1.1 roadmap written (ROADMAP.md + STATE.md created, REQUIREMENTS.md traceability finalized)
+Last session: 2026-03-21T14:25:52.404Z
+Stopped at: Completed 05-01-PLAN.md and 05-02-PLAN.md — Phase 5 Boot Infrastructure & Interface Contract complete
 Resume file: None

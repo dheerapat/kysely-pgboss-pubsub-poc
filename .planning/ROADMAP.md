@@ -66,8 +66,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Interface contract: `IEventBus.subscribe()` + `boss.ts` cleanup
-- [ ] 05-02-PLAN.md — `PgBossEventBus.subscribe()` impl + `index.ts` boot wiring
+- [x] 05-01-PLAN.md — Interface contract: `IEventBus.subscribe()` + `boss.ts` cleanup
+- [x] 05-02-PLAN.md — `PgBossEventBus.subscribe()` impl + `index.ts` boot wiring
 
 ### Phase 6: PgBossEventBus Migration + Fan-Out Wiring
 **Goal**: `PgBossEventBus` uses `boss.publish()`/`boss.subscribe()` and two independent subscribers (`NotificationService` + `AuditService`) both fire when a single `user.registered` event is published.
@@ -102,6 +102,6 @@ Plans:
 | 2. Domain Layer | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 3. Application Logic | v1.0 | 3/3 | Complete | 2026-03-21 |
 | 4. HTTP + Demo | v1.0 | 2/2 | Complete | 2026-03-21 |
-| 5. Boot Infrastructure & Interface Contract | v1.1 | 0/? | Not started | - |
+| 5. Boot Infrastructure & Interface Contract | v1.1 | 2/2 | Complete   | 2026-03-21 |
 | 6. PgBossEventBus Migration + Fan-Out Wiring | v1.1 | 0/? | Not started | - |
 | 7. Documentation & Verification | v1.1 | 0/? | Not started | - |

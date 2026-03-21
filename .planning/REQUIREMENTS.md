@@ -10,14 +10,14 @@
 
 - [ ] **BUS-01**: `PgBossEventBus.publish()` uses `boss.publish()` instead of `boss.send()`
 - [ ] **BUS-02**: `PgBossEventBus.subscribe()` performs 3-step setup: `createQueue + boss.subscribe + boss.work` using derived subscriber queue name
-- [ ] **BUS-03**: `IEventBus.subscribe()` requires a `subscriberName: string` parameter
-- [ ] **BUS-04**: Queue naming convention is encapsulated in `PgBossEventBus` — domain code remains pg-boss-unaware
+- [x] **BUS-03**: `IEventBus.subscribe()` requires a `subscriberName: string` parameter
+- [x] **BUS-04**: Queue naming convention is encapsulated in `PgBossEventBus` — domain code remains pg-boss-unaware
 
 ### Boot Infrastructure
 
-- [ ] **BOOT-01**: `KNOWN_QUEUES` is removed from `boss.ts`; queue lifecycle moves to `PgBossEventBus.subscribe()`
-- [ ] **BOOT-02**: Boot sequence enforces create → subscribe → work → listen ordering (no events published before subscriptions are registered)
-- [ ] **BOOT-03**: `boss.on('error', ...)` error handler is preserved after `boss.ts` refactor
+- [x] **BOOT-01**: `KNOWN_QUEUES` is removed from `boss.ts`; queue lifecycle moves to `PgBossEventBus.subscribe()`
+- [x] **BOOT-02**: Boot sequence enforces create → subscribe → work → listen ordering (no events published before subscriptions are registered)
+- [x] **BOOT-03**: `boss.on('error', ...)` error handler is preserved after `boss.ts` refactor
 
 ### Fan-Out Demo
 
@@ -60,11 +60,11 @@
 |-------------|-------|--------|
 | BUS-01 | Phase 5 | Pending |
 | BUS-02 | Phase 5 | Pending |
-| BUS-03 | Phase 5 | Pending |
-| BUS-04 | Phase 5 | Pending |
-| BOOT-01 | Phase 5 | Pending |
-| BOOT-02 | Phase 5 | Pending |
-| BOOT-03 | Phase 5 | Pending |
+| BUS-03 | Phase 5 | Complete |
+| BUS-04 | Phase 5 | Complete |
+| BOOT-01 | Phase 5 | Complete |
+| BOOT-02 | Phase 5 | Complete |
+| BOOT-03 | Phase 5 | Complete |
 | FOUT-01 | Phase 6 | Pending |
 | FOUT-02 | Phase 6 | Pending |
 | VERI-01 | Phase 7 | Pending |
