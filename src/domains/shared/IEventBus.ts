@@ -1,4 +1,4 @@
-import type { KyselyAdapter } from "../../infrastructure/db/KyselyAdapter.ts";
+import type { IDbClient } from "./IDbClient.ts";
 import type { DomainEventMap } from "./events.ts";
 
 /**
@@ -9,13 +9,13 @@ import type { DomainEventMap } from "./events.ts";
 export interface IEventBus {
   /**
    * Publish an event. If opts.db is provided, the publish is routed through
-   * that KyselyAdapter's transaction — making it atomic with the surrounding
+   * that db client's transaction — making it atomic with the surrounding
    * database operation.
    */
   publish<K extends keyof DomainEventMap>(
     event: K,
     payload: DomainEventMap[K],
-    opts?: { db?: KyselyAdapter },
+    opts?: { db?: IDbClient },
   ): Promise<void>;
 
   /**
