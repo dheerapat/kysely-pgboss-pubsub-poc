@@ -50,9 +50,25 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ Boot order enforced: workers plugin awaited before `.listen()` — v1.2
 - ✓ Graceful shutdown accesses `boss`/`pool` via `services.decorator` — no direct infra imports in `index.ts` — v1.2
 
+## Current Milestone: v1.3 Docker + Load Balancing
+
+**Goal:** Containerize the app and run it as 6 parallel instances behind a Caddy load balancer alongside PostgreSQL, proving horizontal scalability of the pg-boss event-driven architecture.
+
+**Target features:**
+- Multi-stage Dockerfile (Bun builder + slim runtime)
+- Docker Compose: 6 replicated app instances + PostgreSQL + Caddy
+- Caddy round-robin load balancer on port 8080 with health checks
+- `GET /health` endpoint for Caddy health monitoring
+- pg-boss workers run on all 6 instances (DB locking ensures safe concurrent job processing)
+
 ### Active
 
-*(No active requirements — all three milestones complete. Start `/gsd-new-milestone` for v2 planning.)*
+- [ ] Multi-stage Dockerfile producing a minimal Bun runtime image
+- [ ] Docker Compose with `deploy.replicas: 6` for the app service
+- [ ] PostgreSQL service in Compose with persistent volume
+- [ ] Caddy service with round-robin `reverse_proxy` to app instances
+- [ ] `GET /health` endpoint returning 200 OK
+- [ ] Caddyfile with health check config (`health_uri /health`, 10s interval)
 
 ### Out of Scope
 
@@ -130,4 +146,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after v1.2 milestone (Elysia Decorate Refactor) complete*
+*Last updated: 2026-03-22 after v1.3 milestone (Docker + Load Balancing) started*
