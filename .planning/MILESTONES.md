@@ -1,5 +1,17 @@
 # Milestones
 
+## v1.3 Docker + Load Balancing (Shipped: 2026-03-22)
+
+**Phases completed:** 3 phases, 5 plans, 6 tasks
+
+**Key accomplishments:**
+
+- Full 3-service Compose stack (postgres:17 + 6 app replicas) with pg_isready healthcheck, guaranteed boot ordering, and env-var-capped pg pool connections
+- Caddyfile with round-robin LB policy and active health checks wired into docker-compose.yml, completing the 3-service stack
+- Full 3-service stack validated: Caddy round-robin across 6 app replicas with pg-boss exactly-once job processing confirmed
+
+---
+
 ## v1.2 Elysia Decorate Refactor (Shipped: 2026-03-22)
 
 **Phases completed:** 2 phases, 3 plans, 4 tasks

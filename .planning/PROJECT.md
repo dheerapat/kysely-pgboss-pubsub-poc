@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events, with a third observer (AuditService) proving native fan-out. The codebase is organized using Elysia's `decorate` plugin pattern — a clean composition root composes three focused plugins (servicesPlugin, workersPlugin, userRoutesPlugin) with full TypeScript type inference. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven and demonstrated end-to-end with a working HTTP API, rollback demo, and annotated README.
+A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events, with a third observer (AuditService) proving native fan-out. The codebase is organized using Elysia's `decorate` plugin pattern — a clean composition root composes three focused plugins (servicesPlugin, workersPlugin, userRoutesPlugin) with full TypeScript type inference. The app runs as 6 horizontally-scaled replicas behind a Caddy load balancer, containerized with Docker Compose. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven end-to-end at scale: exactly-once job processing is maintained across all 6 competing replicas.
 
 ## Core Value
 
@@ -49,44 +49,22 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ `index.ts` is a pure composition root — no `new Service()`, no inline `await eventBus.subscribe()` — v1.2
 - ✓ Boot order enforced: workers plugin awaited before `.listen()` — v1.2
 - ✓ Graceful shutdown accesses `boss`/`pool` via `services.decorator` — no direct infra imports in `index.ts` — v1.2
-
-## Current Milestone: v1.3 Docker + Load Balancing
-
-**Goal:** Containerize the app and run it as 6 parallel instances behind a Caddy load balancer alongside PostgreSQL, proving horizontal scalability of the pg-boss event-driven architecture.
-
-**Target features:**
-- Multi-stage Dockerfile (Bun builder + slim runtime)
-- Docker Compose: 6 replicated app instances + PostgreSQL + Caddy
-- Caddy round-robin load balancer on port 8080 with health checks
-- `GET /health` endpoint for Caddy health monitoring
-- pg-boss workers run on all 6 instances (DB locking ensures safe concurrent job processing)
-
-### Validated in Phase 10: app-containerization-foundation
-
-- ✓ `DATABASE_URL` env var with `localhost:15432` fallback for local dev (CONT-01) — v1.3
-- ✓ `GET /health` returns HTTP 200 with `{"status":"ok"}` for Caddy liveness checks (CONT-02) — v1.3
-- ✓ `SIGTERM` triggers graceful drain: HTTP stop → boss.stop() → pool.end() → exit (CONT-03) — v1.3
-- ✓ Multi-stage Dockerfile using `oven/bun:1.3.11` — production deps only in runtime image (DOCK-01, DOCK-03) — v1.3
-- ✓ `.dockerignore` excludes `node_modules`, `.git`, `.env`; `bun.lock` accessible for `--frozen-lockfile` (DOCK-02) — v1.3
-
-### Validated in Phase 11: docker-compose-setup
-
-- ✓ Docker Compose with `deploy.replicas: 6` for the app service (COMP-02) — v1.3
-- ✓ PostgreSQL service in Compose with persistent volume and `pg_isready` healthcheck (COMP-01) — v1.3
-- ✓ App service has no `ports:` mapping — only Caddy exposes a host port (COMP-04) — v1.3
-- ✓ pg-boss multi-master safe: 6 concurrent `boss.start()` calls explicitly supported via advisory lock (COMP-03) — v1.3
-
-### Validated in Phase 12: caddy-load-balancing-verification
-
-- ✓ Caddyfile with `reverse_proxy app:3000 lb_policy round_robin` (CADDY-01) — v1.3
-- ✓ Caddyfile health check: `health_uri /health`, `health_interval 10s`, `health_fails 3` (CADDY-02) — v1.3
-- ✓ Caddy service in Docker Compose exposes port `8080:8080` (CADDY-03) — v1.3
-- ✓ Round-robin routing confirmed live: all 6 replicas each handled 1 of 6 successive POST /users requests — v1.3
-- ✓ Exactly-once job processing confirmed: singleton POST → exactly 1 NotificationService + 1 AuditService execution (0 duplicates) — v1.3
+- ✓ App reads `DATABASE_URL` env var for Postgres connection (fallback to `localhost:15432` for local dev) — v1.3
+- ✓ `GET /health` endpoint returns HTTP 200 with `{"status":"ok"}` for Caddy liveness checks — v1.3
+- ✓ `SIGTERM` triggers graceful drain: HTTP stop → boss.stop() → pool.end() → exit — v1.3
+- ✓ Multi-stage Dockerfile using `oven/bun:1.3.11` — production deps only in runtime image — v1.3
+- ✓ `.dockerignore` excludes `node_modules`, `.git`, `.env`; `bun.lock` accessible for `--frozen-lockfile` — v1.3
+- ✓ Docker Compose with `postgres:17` + `pg_isready` healthcheck and `deploy.replicas: 6` — v1.3
+- ✓ App service has no `ports:` mapping — only Caddy exposes a host port — v1.3
+- ✓ pg-boss multi-master safe: 6 concurrent `boss.start()` calls via advisory lock, no schema races — v1.3
+- ✓ Caddyfile with `reverse_proxy app:3000 lb_policy round_robin` + `health_uri /health`, `health_interval 10s`, `health_fails 3` — v1.3
+- ✓ Caddy service in Docker Compose exposes port `8080:8080` — v1.3
+- ✓ Round-robin routing confirmed: all 6 replicas each handled 1 of 6 successive POST /users requests — v1.3
+- ✓ Exactly-once job processing confirmed: single POST → exactly 1 NotificationService + 1 AuditService execution, 0 duplicates — v1.3
 
 ### Active
 
-*(None — v1.3 milestone complete)*
+*(None — v1.3 milestone complete; POC thesis fully proven)*
 
 ### Out of Scope
 
@@ -101,16 +79,21 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - pg-boss version upgrade — 12.5.4 has all required pub/sub APIs
 - Dead letter queue demo — separate concern; failure visibility is v2+
 - `@pg-boss/dashboard` — useful for teaching but not essential to prove fan-out
+- TLS / HTTPS — `:8080` bare port disables Caddy auto-HTTPS — not needed for local POC
+- PgBouncer connection pooling — production concern; pg pool max:5 × 6 = 30 connections is sufficient for POC
+- Named Docker networks — default Compose bridge network is sufficient
+- `oven/bun:distroless` runtime image — removes shell access needed for debugging
+- Caddy Prometheus metrics — operational concern beyond POC scope
 
 ## Context
 
-**Status:** v1.0, v1.1, v1.2, and v1.3 all shipped. Codebase is feature-complete for the POC thesis. All four milestones archived. The horizontal scaling thesis is proven: 6 app replicas behind Caddy with pg-boss exactly-once job processing.
+**Status:** v1.0, v1.1, v1.2, and v1.3 all shipped. All four milestones archived. The POC thesis is fully proven at scale.
 
-**Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
+**Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker + Docker Compose (Caddy + 6 app replicas + PostgreSQL).
 
-**Codebase:** ~592 LOC TypeScript (src/), clean folder-per-domain structure with `src/plugins/` for Elysia plugin layer. Tests via bun:test.
+**Codebase:** ~601 LOC TypeScript (src/), clean folder-per-domain structure with `src/plugins/` for Elysia plugin layer.
 
-**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created. Native pub/sub (`boss.publish`) fans out to all subscribed queues automatically via the `pgboss.subscription` table — no manual routing needed. `index.ts` is now a clean composition root using Elysia's `decorate` pattern.
+**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created. Native pub/sub (`boss.publish`) fans out to all subscribed queues automatically via the `pgboss.subscription` table. `index.ts` is a clean composition root using Elysia's `decorate` pattern. At 6 horizontal replicas, pg-boss's advisory locking ensures exactly-once job processing across all competing workers — no duplicate handlers, no missed events.
 
 **v2 ideas (not planned):**
 - V2-01: Second event type (e.g. `user.deactivated`) to show multi-event support
@@ -138,6 +121,12 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 | Async factory pattern for `servicesPlugin` | `.onStart()` alternative loses TypeScript type inference on decorated properties | ✓ Good — TypeScript infers all context property types from concrete plugin instance |
 | `createWorkersPlugin` accepts service instances (not `.use(servicesPlugin)`) | `subscribe()` calls are async — caller must await before `.listen()`, explicit boot ordering | ✓ Good — composition root controls ordering; no hidden sequencing |
 | `services.decorator.boss/pool` for shutdown in `index.ts` | Avoids re-importing infra into composition root — pure plugin composition | ✓ Good — no direct infra imports in index.ts post-refactor |
+| `DATABASE_URL` env var with `localhost:15432` fallback | Enables Docker override without breaking local dev; avoids ECONNREFUSED inside container | ✓ Good — zero friction for both local and containerized runs |
+| Multi-stage Dockerfile with `oven/bun:1.3.11` (no `bun build`) | Bun runs TypeScript natively — no transpile step needed; pinned version for reproducibility | ✓ Good — minimal image, reproducible builds |
+| `deploy.replicas: 6`, no `ports:` on app service | Caddy is sole host-facing entry point; replicas not directly addressable | ✓ Good — clean load balancer pattern, no port collision |
+| `postgres:17` pinned (not latest) | pg-boss 12.5.4 compatibility with pg18 untested as of development date | ✓ Good — stable, reproducible |
+| Caddy `health_fails 3` (not default 1) | pg-boss boot takes ~2-5s; default of 1 would mark replicas unhealthy before they're ready | ✓ Good — avoids false-negative health checks during startup |
+| pg pool max:5 per replica (via env var) | 6×5=30 total connections, under Postgres default max of 100 | ✓ Good — safe for POC without external connection pooler |
 
 ## Constraints
 
@@ -164,4 +153,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 12 (caddy-load-balancing-verification) complete — v1.3 milestone shipped*
+*Last updated: 2026-03-22 after v1.3 milestone complete — Docker + Load Balancing shipped; all 4 milestones archived*
