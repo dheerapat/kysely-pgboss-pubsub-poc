@@ -1,453 +1,404 @@
-# Architecture Research: pg-boss Pub/Sub Migration + Fan-Out (v1.1)
+# Architecture Research: Docker + Load Balancing (v1.3)
 
-**Domain:** Event-driven DDD — pg-boss native pub/sub channel → queue fan-out
-**Researched:** 2026-03-21
-**Confidence:** HIGH — all claims verified directly from pg-boss source in node_modules
+**Domain:** Multi-instance Docker Compose deployment with Caddy and pg-boss
+**Researched:** 2026-03-22
+**Confidence:** HIGH — all claims verified from pg-boss source, Docker Compose docs, and Caddy official docs
+
+---
+
+> **Previous milestone architecture** (v1.1 pg-boss pub/sub) is covered in project history. This file covers **v1.3** containerization only.
 
 ---
 
 ## Standard Architecture
 
-### System Overview (v1.1 target state)
+### Full Compose Network Topology
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                            HTTP Layer                                │
-│   Elysia → POST /users → UserService.register()                     │
-└──────────────────────────────┬───────────────────────────────────────┘
-                               │ calls (same as v1.0)
-┌──────────────────────────────▼───────────────────────────────────────┐
-│                          Domain Layer                                │
-│                                                                      │
-│  ┌─────────────────────┐  ┌──────────────────┐  ┌────────────────┐  │
-│  │    User Domain      │  │ Notification     │  │ Audit Domain   │  │
-│  │                     │  │ Domain           │  │ (NEW)          │  │
-│  │  UserService        │  │                  │  │                │  │
-│  │    ├─ tx INSERT      │  │ Notification     │  │ AuditService   │  │
-│  │    └─ eventBus       │  │ Service          │  │                │  │
-│  │       .publish(      │  │ .handleUser      │  │ .handleUser    │  │
-│  │        "user.regis-  │  │  Registered()    │  │  Registered()  │  │
-│  │         tered", ...) │  │                  │  │                │  │
-│  └─────────────────────┘  └──────────────────┘  └────────────────┘  │
-│                                                                      │
-│  shared/IEventBus.ts     shared/events.ts    shared/IDbClient.ts    │
-└──────────────────┬───────────────────────────────────────────────────┘
-                   │ uses (via IEventBus interface)
-┌──────────────────▼───────────────────────────────────────────────────┐
-│                       Infrastructure Layer                           │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  PgBossEventBus (MODIFIED)                                   │   │
-│  │                                                              │   │
-│  │  publish("user.registered", payload, { db }) →              │   │
-│  │    boss.publish("user.registered", payload, { db })          │   │
-│  │      → SQL: SELECT name FROM subscription WHERE event=$1     │   │
-│  │      → boss.send("notification.user.registered", payload)    │   │
-│  │      → boss.send("audit.user.registered", payload)           │   │
-│  │                                                              │   │
-│  │  subscribe("user.registered", notifHandler) →               │   │
-│  │    boss.createQueue("notification.user.registered")          │   │
-│  │    boss.subscribe("user.registered",                         │   │
-│  │                   "notification.user.registered")            │   │
-│  │    boss.work("notification.user.registered", notifHandler)   │   │
-│  │                                                              │   │
-│  │  subscribe("user.registered", auditHandler) →               │   │
-│  │    boss.createQueue("audit.user.registered")                 │   │
-│  │    boss.subscribe("user.registered",                         │   │
-│  │                   "audit.user.registered")                   │   │
-│  │    boss.work("audit.user.registered", auditHandler)          │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│  ┌──────────────────────┐    ┌───────────────────────────────────┐  │
-│  │  boss.ts (MODIFIED)  │    │  Database                         │  │
-│  │                      │    │                                   │  │
-│  │  KNOWN_QUEUES removed│    │  pgboss.subscription table        │  │
-│  │  (queues created by  │    │    event="user.registered"        │  │
-│  │   subscribe() calls) │    │    name="notification.user..."    │  │
-│  │                      │    │    name="audit.user.registered"   │  │
-│  └──────────────────────┘    └───────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────────────────────┐
+                        │           Docker Compose — bridge network                 │
+                        │                                                           │
+  ┌──────────────┐      │  ┌──────────────────────────────────────────────────┐    │
+  │ Host browser │ :8080│  │                    caddy                          │    │
+  │ / curl       ├──────►  │  Caddyfile: reverse_proxy app:3000                │    │
+  └──────────────┘      │  │  lb_policy round_robin                            │    │
+                        │  │  health_uri /health, health_interval 10s          │    │
+                        │  └──────────────────┬───────────────────────────────┘    │
+                        │                     │ round-robin across 6 replicas      │
+                        │  ┌──────────────────▼───────────────────────────────┐    │
+                        │  │               app service (×6 replicas)           │    │
+                        │  │  service name: app, container port: 3000          │    │
+                        │  │  deploy.replicas: 6                               │    │
+                        │  │                                                   │    │
+                        │  │  [app-1] [app-2] [app-3] [app-4] [app-5] [app-6] │    │
+                        │  │                                                   │    │
+                        │  │  Each instance runs:                              │    │
+                        │  │  - Elysia HTTP on :3000                          │    │
+                        │  │  - PgBoss instance (boss.start())                │    │
+                        │  │  - pg.Pool (DATABASE_URL → postgres:5432)        │    │
+                        │  │  - 2 workers polling pgboss job tables           │    │
+                        │  └──────────────────┬───────────────────────────────┘    │
+                        │                     │ DATABASE_URL=postgres://…postgres  │
+                        │                     ▼                                    │
+                        │  ┌──────────────────────────────────────────────────┐    │
+                        │  │                  postgres                          │    │
+                        │  │  image: postgres:17-alpine                        │    │
+                        │  │  port: 5432 (internal only — no host mapping)    │    │
+                        │  │  volume: postgres-data:/var/lib/postgresql/data   │    │
+                        │  │                                                   │    │
+                        │  │  pgboss.job_notification_user_registered          │    │
+                        │  │  pgboss.job_audit_user_registered                 │    │
+                        │  │  pgboss.subscription (fan-out routing table)     │    │
+                        │  │  pgboss.queue (shared queue registry)            │    │
+                        │  │  public.users (app data)                         │    │
+                        │  └──────────────────────────────────────────────────┘    │
+                        └──────────────────────────────────────────────────────────┘
 ```
 
-### Component Responsibilities
+### pg-boss Multi-Instance Concurrency Model
 
-| Component | Responsibility | v1.1 Change |
-|-----------|----------------|-------------|
-| `IEventBus` | Domain contract for publish/subscribe | **No change** — interface signature unchanged |
-| `DomainEventMap` | Type registry: event name → payload type | **No change** |
-| `IDbClient` | Structural interface for transactional routing | **No change** |
-| `PgBossEventBus` | Routes `publish()` to `boss.publish()`, `subscribe()` to `boss.subscribe()` + `boss.work()` | **Modified** — see patterns below |
-| `boss.ts` | PgBoss singleton + boot | **Modified** — remove `KNOWN_QUEUES`; queues created in `subscribe()` |
-| `NotificationService` | Handle `user.registered`, log welcome email | **No change** |
-| `AuditService` | Handle `user.registered`, log audit event | **NEW** — second subscriber |
-| `src/index.ts` | Composition root: boot, subscribe, listen | **Modified** — add AuditService subscription |
+All 6 pg-boss instances poll the same job tables. Postgres's `FOR UPDATE SKIP LOCKED` ensures each job row is processed by exactly one instance:
+
+```
+  Instance-1 worker ─┐
+  Instance-2 worker ─┤  all polling:
+  Instance-3 worker ─┤  SELECT id FROM pgboss.job_notification_user_registered
+  Instance-4 worker ─┤  WHERE state < 'active'
+  Instance-5 worker ─┤  FOR UPDATE SKIP LOCKED LIMIT 1
+  Instance-6 worker ─┘
+
+  Job A locked by instance-2 → invisible to instances 1, 3, 4, 5, 6
+  Job B locked by instance-5 → invisible to all others
+  Unlocked rows → first claimer wins, atomically
+```
+
+`SKIP LOCKED` is verified in `node_modules/pg-boss/dist/plans.js`, `fetchNextJob()` function. This is the pg-boss "Multi-master compatible" feature explicitly documented in its README.
 
 ---
 
-## How pub/sub Fan-Out Works in pg-boss
+## Component Responsibilities
 
-### The Core Mechanism (verified from pg-boss source)
+| Component | Responsibility | Implementation |
+|-----------|----------------|---------------|
+| `caddy` | Reverse proxy, round-robin LB, health check polling | `caddy:2-alpine` with Caddyfile |
+| `app` (×6) | Elysia HTTP server, pg-boss workers, domain logic | Multi-stage Bun Dockerfile, `deploy.replicas: 6` |
+| `postgres` | Single shared job store, pg-boss schema, user data | `postgres:17-alpine`, named volume |
+| `Caddyfile` | Upstream config, health check, LB policy | Mounted at `/etc/caddy/Caddyfile` |
+| `Dockerfile` | Multi-stage build: install deps → slim runtime | Two-stage, Bun-based |
+| `docker-compose.yml` | Orchestration, networking, env vars, health checks, boot order | Full stack replacement |
 
-pg-boss pub/sub uses a `subscription` table:
+---
 
-```sql
--- pgboss.subscription
--- event = the channel name (e.g. "user.registered")
--- name  = the subscriber queue name (e.g. "notification.user.registered")
-```
+## New Files vs Modified Files
 
-**`boss.subscribe(event, name)`** — registers a mapping in the subscription table:
-```sql
-INSERT INTO pgboss.subscription (event, name)
-VALUES ($1, $2)
-ON CONFLICT (event, name) DO UPDATE ...
-```
+### New Files (to create)
 
-**`boss.publish(event, data, options)`** — fans out to all registered subscriber queues:
-```js
-// manager.js source:
-async publish(event, data, options) {
-  const sql = plans.getQueuesForEvent(this.config.schema);
-  const { rows } = await this.db.executeSql(sql, [event]);
-  await Promise.allSettled(rows.map(({ name }) => this.send(name, data, options)));
-}
-// getQueuesForEvent SQL:
-// SELECT name FROM pgboss.subscription WHERE event = $1
-```
+| File | What it is |
+|------|-----------|
+| `Dockerfile` | **Stage 1 (builder):** `FROM oven/bun AS builder` — copies `package.json`, `bun.lock`, runs `bun install --frozen-lockfile`. **Stage 2 (runtime):** `FROM oven/bun` — copies `node_modules` + `src/` + `index.ts`, sets `CMD ["bun", "run", "src/index.ts"]` |
+| `docker-compose.yml` | Full stack: `app` (6 replicas) + `postgres` + `caddy`. Replaces dev-only `docker-compose.postgres.yaml` for the full test run. |
+| `Caddyfile` | Static Caddy config. `reverse_proxy app:3000` with `round_robin` LB and `/health` active health checks. |
 
-**Fan-out result:** One `boss.publish("user.registered", payload)` call → one `boss.send()` per registered subscriber queue → one job row per subscriber queue in PostgreSQL → each subscriber's `boss.work()` worker picks up its own job independently.
+### Modified Files
 
-### Critical: Queues Must Exist Before publish()
+| File | What changes |
+|------|-------------|
+| `src/infrastructure/db/pool.ts` | Replace hardcoded `postgres://admin:pass@localhost:15432/postgres` with `process.env["DATABASE_URL"] ?? "postgres://admin:pass@localhost:15432/postgres"`. The fallback preserves local dev without Docker. |
+| `src/index.ts` | Add `GET /health` endpoint returning HTTP 200 `{ status: "ok" }` — required for Caddy health checks. Boot sequence unchanged. |
 
-`boss.send()` (called internally by `boss.publish()`) calls `getQueueCache(name)` which throws `Error: Queue ${name} does not exist` if the queue hasn't been created. Subscriber queues **must** be created with `boss.createQueue()` before any `publish()` call fires.
-
-This means: **subscribe before listen** (already the pattern in v1.0 boot sequence).
-
-### Transactional Atomicity Preserved
-
-`boss.publish()` forwards `options` (including `db`) to `boss.send()`. The `db` option routes the INSERT through the active transaction. With two subscribers, this means **two job rows** are inserted in the same transaction — both committed or both rolled back atomically.
-
-```
-UserService.register():
-  tx.begin()
-    INSERT INTO users (...)
-    boss.publish("user.registered", payload, { db: KyselyAdapter(tx) })
-      → boss.send("notification.user.registered", payload, { db: ... })  ← job row 1 in tx
-      → boss.send("audit.user.registered", payload, { db: ... })         ← job row 2 in tx
-  tx.commit()  ← all 3 rows committed together, or none
-```
+**No other source files change.** Existing plugin composition, boot ordering, and pg-boss wiring are container-ready as-is.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Channel-Scoped Queue Names
+### Pattern 1: `FOR UPDATE SKIP LOCKED` — Safe Concurrent Workers
 
-**What:** Each subscriber gets a unique queue name derived from the event channel name plus a subscriber identifier.
+**What:** PostgreSQL's row-level locking primitive for message queue consumers. When N workers issue the same `SELECT … FOR UPDATE SKIP LOCKED`, each atomically acquires the first unlocked row and the others skip it transparently.
 
-**Convention:** `{subscriber}.{event}` — e.g. `notification.user.registered`, `audit.user.registered`
+**When to use:** Any multi-process PostgreSQL-backed job queue. pg-boss uses this in every `fetchNextJob()` call.
 
-**Why:** pg-boss queues provide exactly-once delivery per queue. If two subscribers shared one queue, only one would receive each job. Unique queue names give each subscriber its own delivery stream.
+**Trade-offs:**
+- Pro: Zero coordination overhead — no distributed lock manager, no Redis, no Zookeeper
+- Pro: Exactly-once delivery guaranteed at the database level
+- Pro: Works across any number of replicas with no configuration
+- Con: Under low load, 6 polling workers create minor connection pressure (pg-boss uses adaptive polling intervals to mitigate)
 
-**Trade-offs:** More queues in the database, but each has clear ownership and can be monitored independently.
+**Source:** `node_modules/pg-boss/dist/plans.js`, `fetchNextJob()`, line 525 — `FOR UPDATE SKIP LOCKED` confirmed in source.
 
-**Example:**
-```typescript
-// In PgBossEventBus.subscribe():
-async subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-  subscriberName: string,  // e.g. "notification", "audit"
-): Promise<void> {
-  const queueName = `${subscriberName}.${event}`;  // "notification.user.registered"
-  await this.boss.createQueue(queueName);
-  await this.boss.subscribe(event, queueName);      // register channel → queue mapping
-  await this.boss.work(queueName, async ([job]) => {
-    if (!job) throw new Error(`No job received for queue: ${queueName}`);
-    await handler(job.data as DomainEventMap[K]);
-  });
+### Pattern 2: Advisory Locks for Race-Safe Schema Initialization
+
+**What:** pg-boss wraps schema creation in `pg_advisory_xact_lock()`. All 6 replicas call `boss.start()` at boot. One wins the lock and creates the `pgboss` schema; the other 5 get an `"already exists"` error (Postgres `CREATE_RACE_MESSAGE`) that pg-boss explicitly catches and swallows.
+
+**When to use:** Any shared schema that must be initialized idempotently across concurrent processes without external coordination.
+
+**Source:** `node_modules/pg-boss/dist/contractor.js`, `create()` method:
+
+```javascript
+async create() {
+  try {
+    await this.db.executeSql(plans.create(this.config.schema, schemaVersion));
+  } catch (err) {
+    // "already exists" = another replica won the race → safe to ignore
+    assert(err.message.includes(plans.CREATE_RACE_MESSAGE), err);
+  }
 }
 ```
 
-### Pattern 2: IEventBus Subscribe Signature Extension
+**Trade-offs:**
+- Pro: All 6 replicas can start simultaneously — Compose doesn't need to serialize app startup
+- Pro: No manual migration runner or init container required
+- Con: Brief lock contention on first boot (6 connections racing). In practice: sub-second, transparent.
 
-**What:** The `IEventBus.subscribe()` method needs a `subscriberName` parameter so `PgBossEventBus` can derive unique queue names. Two options:
+### Pattern 3: Docker Service DNS for Caddy → App Routing
 
-**Option A — Extend subscribe signature (recommended):**
-```typescript
-// IEventBus.ts
-subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-  subscriberName: string,
-): Promise<void>;
+**What:** Docker Compose's embedded DNS resolves the `app` service name to the IPs of all 6 replica containers. Caddy proxies to `app:3000` — it does not need to enumerate individual replicas.
+
+**When to use:** Any Compose-based multi-replica setup behind a reverse proxy.
+
+**Caddy `reverse_proxy app:3000`** resolves `app` via Docker DNS → gets 6 container IPs → applies `round_robin` LB policy across them.
+
+**Active health checks:** Caddy polls `GET /health` on each upstream. Replicas that fail health checks are removed from rotation automatically. This requires the `GET /health` endpoint in the app.
+
+**Trade-offs:**
+- Pro: No service mesh, no Consul, no manual upstream list — Docker DNS handles replica discovery
+- Pro: Caddy health checks provide real availability awareness (not just DNS round-robin blind)
+- Con: DNS TTL means momentary stale entries if a replica restarts; Caddy's passive health checks catch this quickly
+
+### Pattern 4: `depends_on` with `service_healthy` for Boot Ordering
+
+**What:** pg-boss `boss.start()` immediately connects to Postgres. Without `depends_on`, all 6 app replicas race against Postgres startup, fail to connect, and crash-loop. `service_healthy` condition on the app service waits for the postgres health check to pass.
+
+**When to use:** Any Compose stack where an application depends on a database being ready to accept connections.
+
+**Postgres healthcheck (use `pg_isready`):**
+```yaml
+postgres:
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 5s
+    retries: 5
 ```
 
-**Option B — Use options object:**
-```typescript
-subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-  opts?: { name?: string },
-): Promise<void>;
+**App depends_on:**
+```yaml
+app:
+  depends_on:
+    postgres:
+      condition: service_healthy
 ```
 
-**Recommendation:** Option A. The `subscriberName` is **required** for fan-out correctness — it should not be optional. An optional parameter would compile but silently fail if omitted by a second subscriber (queue name collision).
-
-**Trade-off:** This is a breaking change to the `IEventBus` interface. All existing `.subscribe()` call sites need updating. Since there are only 2 call sites in `src/index.ts`, this is low risk.
-
-### Pattern 3: Boot Sequence — Subscribe Before Publish
-
-**What:** All subscriber queues must be created and registered (via `boss.subscribe()`) before any HTTP request can trigger `boss.publish()`.
-
-**When to use:** Always. This is the same constraint as v1.0 (`boss.work()` must be registered before the server starts listening).
-
-**Example (updated boot sequence):**
-```typescript
-// src/index.ts
-async function main() {
-  await setupSchema();
-  const boss = await createBoss();           // boss.start() — no KNOWN_QUEUES needed
-  const eventBus = new PgBossEventBus(boss);
-
-  // Wire domains
-  const userRepo = new UserRepository();
-  const userService = new UserService(userRepo, eventBus);
-
-  // Register ALL subscribers BEFORE server starts
-  const notificationService = new NotificationService();
-  await eventBus.subscribe(
-    "user.registered",
-    (payload) => notificationService.handleUserRegistered(payload),
-    "notification",  // → queue: "notification.user.registered"
-  );
-
-  const auditService = new AuditService();   // NEW
-  await eventBus.subscribe(
-    "user.registered",
-    (payload) => auditService.handleUserRegistered(payload),
-    "audit",         // → queue: "audit.user.registered"
-  );
-
-  // THEN start server
-  const app = new Elysia().get(...).post(...).listen(PORT);
-}
-```
+**Important:** `depends_on` with `service_healthy` is only respected by `docker compose up`, not `docker swarm` — correct for this milestone.
 
 ---
 
 ## Data Flow
 
-### Request Flow (v1.1 — Fan-Out)
+### HTTP Request Flow (POST /users through load balancer)
 
 ```
-POST /users { email, name }
+Browser/curl → :8080 → caddy (round-robin) → app replica N (:3000)
     │
     ▼
-Elysia router
+Elysia → userRoutesPlugin → UserService.register()
     │
-    ▼
-UserService.register(email, name)
-    │
-    ├─ tx.begin()
-    ├─ UserRepository.save(user, tx)          → INSERT INTO users
-    ├─ eventBus.publish(                      → boss.publish(
-    │    "user.registered", payload,               "user.registered", payload,
-    │    { db: KyselyAdapter(tx) })                { db: KyselyAdapter(tx) })
-    │                                              │
-    │                                              ├─ SELECT name FROM subscription
-    │                                              │    WHERE event="user.registered"
-    │                                              │    → ["notification.user.registered",
-    │                                              │        "audit.user.registered"]
-    │                                              │
-    │                                              ├─ boss.send("notification.user.registered",
-    │                                              │    payload, { db })  → INSERT job row (tx)
-    │                                              │
-    │                                              └─ boss.send("audit.user.registered",
-    │                                                   payload, { db })  → INSERT job row (tx)
-    └─ tx.commit()  → 3 rows committed atomically: 1 user + 2 jobs
+    ├─ kysely.transaction()
+    │     ├─ UserRepository.save(user, tx)         [INSERT INTO users]
+    │     └─ PgBossEventBus.publish(               [boss.publish via tx]
+    │           "user.registered", payload,
+    │           { db: KyselyAdapter(tx) })
+    │             ├─ SELECT name FROM pgboss.subscription  [global pool, non-tx]
+    │             │   → ["notification.user.registered", "audit.user.registered"]
+    │             ├─ INSERT INTO pgboss.job_notification_...  [via tx]
+    │             └─ INSERT INTO pgboss.job_audit_...         [via tx]
+    ├─ tx.commit()   ← 3 rows atomic: 1 user + 2 jobs
     │
     ▼
 HTTP 201 { userId }
 
---- Async (pg-boss worker polling) ---
+--- Async (any of 6 replicas, whichever polls first) ---
 
-boss.work("notification.user.registered")
+pg-boss worker (replica X) → pgboss.job_notification_user_registered
+    → FOR UPDATE SKIP LOCKED → acquires job
     → NotificationService.handleUserRegistered(payload)
-    → logs "Sending welcome email to {email}"
 
-boss.work("audit.user.registered")
-    → AuditService.handleUserRegistered(payload)       [NEW]
-    → logs "Audit: user {userId} registered at {timestamp}"
+pg-boss worker (replica Y) → pgboss.job_audit_user_registered
+    → FOR UPDATE SKIP LOCKED → acquires job
+    → AuditService.handleUserRegistered(payload)
 ```
 
-### Key Data Flows
+### Boot Sequence (All 6 Replicas — Critical Ordering)
 
-1. **Channel → Subscription table → Queue names:** `boss.publish()` queries `pgboss.subscription` to discover which queues are subscribed to the event channel.
-
-2. **Queue → Worker:** Each `boss.work(queueName)` registers a polling worker that picks up jobs from its dedicated queue. Workers are independent; one can fail without affecting the other.
-
-3. **Transactional propagation:** The `{ db }` option flows from `IEventBus.publish()` → `boss.publish()` → each `boss.send()` call → `createJob()` → uses provided db client's `executeSql()` instead of the pool.
+```
+docker compose up
+  │
+  ├─ postgres starts → healthcheck: pg_isready
+  │     ↓ healthy (after ≤ 25s)
+  │
+  ├─ app (×6, all blocked by depends_on: postgres: condition: service_healthy)
+  │     ↓ postgres healthy → all 6 start concurrently
+  │
+  │  Each replica (in parallel, race-safe via advisory locks):
+  │    1. setupSchema()              → CREATE TABLE users IF NOT EXISTS
+  │    2. createBoss() / boss.start()
+  │       └─ contractor.start()     → pg_advisory_xact_lock()
+  │                                    → one replica: CREATE pgboss schema
+  │                                    → others: "already exists" → silently ignored
+  │    3. eventBus.subscribe(×2)    → createQueue → boss.subscribe → boss.work
+  │       (createQueue is idempotent — concurrent calls safe)
+  │    4. app.listen(3000)          → HTTP ready
+  │
+  ├─ caddy starts (depends_on: app)
+  │     → health_uri /health polls each replica every 10s
+  │     → once 1+ replicas healthy → caddy routes traffic
+  │
+  └─ :8080 open to host
+```
 
 ---
 
-## Recommended Project Structure
+## Environment Variables
 
-```
-src/
-├── domains/
-│   ├── shared/
-│   │   ├── events.ts          # DomainEventMap — unchanged
-│   │   ├── IEventBus.ts       # MODIFIED: subscribe() gains subscriberName param
-│   │   └── IDbClient.ts       # unchanged
-│   ├── user/
-│   │   └── UserService.ts     # unchanged — publish() call unchanged
-│   ├── notification/
-│   │   └── NotificationService.ts   # unchanged — handler logic unchanged
-│   └── audit/                 # NEW domain folder
-│       └── AuditService.ts    # NEW — handleUserRegistered() handler
-├── infrastructure/
-│   ├── db/                    # unchanged
-│   └── events/
-│       ├── boss.ts            # MODIFIED: remove KNOWN_QUEUES
-│       └── PgBossEventBus.ts  # MODIFIED: publish→boss.publish, subscribe→boss.subscribe+work
-└── index.ts                   # MODIFIED: add AuditService subscription
-```
+### Variables Required in Each App Container
 
-### Structure Rationale
+| Variable | Purpose | Compose value |
+|----------|---------|---------------|
+| `DATABASE_URL` | pg.Pool + pg-boss Postgres connection | `postgres://admin:pass@postgres:5432/appdb` |
+| `PORT` | Elysia listen port (already read in `src/index.ts`) | `3000` |
 
-- **`domains/audit/`:** New subscriber domain follows the same pattern as `notification/` — a handler class, no infrastructure imports, no pg-boss awareness.
-- **`IEventBus.ts` modified:** `subscriberName` added to `subscribe()` — minimal interface change, high semantic value.
-- **`boss.ts` simplified:** Removing `KNOWN_QUEUES` because queues are now created dynamically inside `PgBossEventBus.subscribe()` as subscriber queues are registered.
+> **Critical:** The existing `pool.ts` hardcodes `postgres://admin:pass@localhost:15432/postgres`. Inside a container, `localhost` resolves to the container itself — not the Postgres service. This **must** be replaced with `process.env["DATABASE_URL"]` before the app will connect.
+
+### Variables Required for Postgres Container
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `POSTGRES_USER` | DB superuser | `admin` |
+| `POSTGRES_PASSWORD` | DB password | `pass` |
+| `POSTGRES_DB` | Initial database name | `appdb` |
+
+### Variables for Caddy
+
+None required. The Caddyfile is static — upstream is always `app:3000` via Docker DNS.
 
 ---
 
 ## Integration Points
 
-### External Services
+### Existing Code → Container Layer
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| pg-boss `subscription` table | `boss.subscribe(event, queueName)` → SQL INSERT | Must call BEFORE `boss.publish()` fires |
-| pg-boss `job` table (per queue) | `boss.send(queueName, data, opts)` → SQL INSERT | Called by `boss.publish()` internally |
-| pg-boss worker | `boss.work(queueName, handler)` → polling loop | One worker per subscriber queue |
+| Existing Code Point | Integration Concern | Resolution |
+|--------------------|---------------------|------------|
+| `src/infrastructure/db/pool.ts` — hardcoded `localhost:15432` | Fails inside container — `localhost` is the container itself | Replace with `process.env["DATABASE_URL"] ?? "postgres://admin:pass@localhost:15432/postgres"` |
+| `src/infrastructure/db/boss.ts` — `new PgBoss({ db: new KyselyAdapter(kysely) })` | Uses same Kysely pool; pool reads `DATABASE_URL` after fix | No change needed |
+| `src/index.ts` — `const PORT = parseInt(process.env["PORT"] ?? "3000")` | Already env-aware | No change needed |
+| Boot sequence: `setupSchema → boss.start → subscribe → listen` | pg-boss advisory locks make this safe for concurrent replicas | No change needed |
+| `workersPlugin` — `await eventBus.subscribe()` × 2 | All 6 instances call `createQueue` concurrently — pg-boss idempotent create handles race | No change needed |
 
-### Internal Boundaries
+### New Integration Points
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| `UserService` ↔ `IEventBus` | `eventBus.publish(event, payload, { db })` | Unchanged — domain never touches pg-boss |
-| `PgBossEventBus` ↔ `PgBoss` | `boss.publish()`, `boss.subscribe()`, `boss.work()`, `boss.createQueue()` | All infra; invisible to domain |
-| `IEventBus.subscribe()` ↔ caller | Gains `subscriberName: string` param | Breaking change in interface; 2 call sites in `index.ts` |
-| `src/index.ts` ↔ `AuditService` | Direct instantiation + subscription | Same wiring pattern as `NotificationService` |
-
----
-
-## Files: New vs Modified vs Unchanged
-
-| File | Status | What Changes |
-|------|--------|--------------|
-| `src/domains/shared/IEventBus.ts` | **MODIFIED** | `subscribe()` gains `subscriberName: string` third param |
-| `src/domains/shared/events.ts` | **UNCHANGED** | |
-| `src/domains/shared/IDbClient.ts` | **UNCHANGED** | |
-| `src/domains/user/UserService.ts` | **UNCHANGED** | `publish()` call signature unchanged |
-| `src/domains/notification/NotificationService.ts` | **UNCHANGED** | Handler unchanged |
-| `src/domains/audit/AuditService.ts` | **NEW** | `handleUserRegistered()` handler, logs audit event |
-| `src/infrastructure/events/PgBossEventBus.ts` | **MODIFIED** | `boss.send()` → `boss.publish()`; `boss.work()` → `boss.createQueue()` + `boss.subscribe()` + `boss.work()` |
-| `src/infrastructure/events/boss.ts` | **MODIFIED** | Remove `KNOWN_QUEUES` and queue pre-creation loop |
-| `src/index.ts` | **MODIFIED** | Add `AuditService` instantiation and subscription; update `NotificationService` subscription to pass `"notification"` name |
+| New Component | Integrates With | Protocol/Notes |
+|---------------|----------------|----------------|
+| `Caddyfile` | `app` service (×6) | HTTP/1.1 to `app:3000`; polls `GET /health` every 10s |
+| `docker-compose.yml` | `app`, `postgres`, `caddy` | Docker bridge network; service DNS; `service_healthy` ordering |
+| `Dockerfile` | `src/`, `index.ts`, `bun.lock`, `package.json` | Bun build stages; `--frozen-lockfile` for reproducibility |
+| `GET /health` endpoint | Caddy health checker | Returns HTTP 200 `{ status: "ok" }` |
 
 ---
 
-## Build Order
+## Recommended File Layout (v1.3 additions)
 
 ```
-1. Modify IEventBus.ts
-   → Add subscriberName param to subscribe() signature
-   → This is the type contract; do first so TypeScript catches mismatches
-
-2. Modify PgBossEventBus.ts
-   → publish(): boss.send() → boss.publish()
-   → subscribe(): boss.work() → boss.createQueue() + boss.subscribe() + boss.work()
-   → subscribe() signature gains subscriberName param
-
-3. Modify boss.ts
-   → Remove KNOWN_QUEUES and createQueue() loop
-   → Queue creation now happens inside PgBossEventBus.subscribe()
-
-4. Create AuditService.ts
-   → New file: src/domains/audit/AuditService.ts
-   → Mirrors NotificationService shape
-   → Pure domain logic: no pg-boss, no Kysely, no imports from infra
-
-5. Modify src/index.ts
-   → Update NotificationService subscription: add "notification" as third arg
-   → Add AuditService import, instantiation, subscription with "audit" as third arg
-   → Subscribe both BEFORE server starts (boot sequence constraint)
+project-root/
+├── Dockerfile            # NEW — multi-stage Bun build
+├── Caddyfile             # NEW — reverse proxy + health check config
+├── docker-compose.yml    # NEW — full stack (replaces docker-compose.postgres.yaml for testing)
+├── docker-compose.postgres.yaml   # KEEP — still useful for local dev without app containers
+├── src/
+│   ├── index.ts          # MODIFIED — add GET /health
+│   └── infrastructure/
+│       └── db/
+│           └── pool.ts   # MODIFIED — use DATABASE_URL env var
+└── ... (all other src files unchanged)
 ```
-
-**Rationale for this order:**
-- `IEventBus` first because it's the type boundary — TypeScript will surface all mismatches when the interface changes.
-- `PgBossEventBus` second because it's the implementation that must conform to the new interface.
-- `boss.ts` third because it loses the `KNOWN_QUEUES` constant that `PgBossEventBus` no longer needs.
-- `AuditService` fourth — pure domain code, no infrastructure dependencies, safe to write before wiring.
-- `index.ts` last because it depends on all of the above being correct first.
 
 ---
 
-## Anti-Patterns
+## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Shared Queue Name for Multiple Subscribers
+### Anti-Pattern 1: Hardcoded Connection String Survives Containerization
 
-**What people do:** Both subscribers call `eventBus.subscribe("user.registered", handler)` without a unique name, resulting in both workers pointing at the same queue (e.g., `"user.registered"`).
+**What people do:** Forget to update `pool.ts` before building the Docker image. Container starts, pool tries `localhost:15432`, connection refused, pg-boss never starts.
 
-**Why it's wrong:** pg-boss queues provide exactly-once delivery per queue. Only one subscriber worker receives each job. Fan-out is silently broken — only one handler fires per event, and it's non-deterministic which one.
+**Why it's wrong:** `localhost` inside an app container is that container's own loopback — not the host machine, not the Postgres container.
 
-**Do this instead:** Use unique queue names per subscriber: `notification.user.registered`, `audit.user.registered`.
+**Do this instead:** `process.env["DATABASE_URL"] ?? fallback` in `pool.ts`. Inject the correct connection string via `environment:` in `docker-compose.yml` using the Postgres service name (`postgres:5432`).
 
-### Anti-Pattern 2: Publish Before Subscribe (Boot Race)
+### Anti-Pattern 2: No Postgres Health Check → Boot Race
 
-**What people do:** Start the HTTP server before registering subscriber queues and channel mappings.
+**What people do:** Start all services with `docker compose up` without `healthcheck` on postgres. App containers start, attempt connection before Postgres is ready, crash-loop.
 
-**Why it's wrong:** If a request triggers `boss.publish()` before `boss.subscribe()` has registered the queue mapping, `getQueuesForEvent()` returns an empty result set — the event is silently dropped. Subsequent requests work after subscribers are eventually registered, creating non-deterministic behavior.
+**Why it's wrong:** Compose `depends_on` without a condition only waits for the container to *start*, not for Postgres to accept connections. pg-boss `boss.start()` immediately connects.
 
-**Do this instead:** Follow the existing pattern: subscribe → listen. All `eventBus.subscribe()` calls must complete before `app.listen()`.
+**Do this instead:** `healthcheck: test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]` on the postgres service, and `depends_on: postgres: condition: service_healthy` on the app service.
 
-### Anti-Pattern 3: Optional subscriberName
+### Anti-Pattern 3: Exposing Postgres Port to Host in Production Stack
 
-**What people do:** Make `subscriberName` optional with a fallback default (e.g., fallback to the event name as the queue name).
+**What people do:** Keep `ports: - "5432:5432"` on postgres in the full stack compose file.
 
-**Why it's wrong:** Two subscribers calling without a name would both try to use the same queue name (the event name). The second `boss.subscribe()` call would succeed (idempotent upsert), but both workers would point at the same queue — same broken fan-out as Anti-Pattern 1.
+**Why it's wrong:** App containers reach Postgres via internal Docker network at `postgres:5432`. Exposing to host is unnecessary and a security surface.
 
-**Do this instead:** Make `subscriberName` required in `IEventBus.subscribe()`. TypeScript enforces this at compile time.
+**Do this instead:** No `ports:` on postgres in `docker-compose.yml`. Postgres is only reachable from within the Docker network. Keep host port mapping in `docker-compose.postgres.yaml` for local dev tooling (DBeaver, psql).
 
-### Anti-Pattern 4: Creating Queues in boss.ts for Pub/Sub
+### Anti-Pattern 4: Enumerating Individual Replica Containers in Caddyfile
 
-**What people do:** Pre-create subscriber queues in `boss.ts` (using `KNOWN_QUEUES`) instead of creating them inside `subscribe()`.
+**What people do:** Try to proxy to `app_1:3000 app_2:3000 … app_6:3000` individually.
 
-**Why it's wrong:** The queue name is known only to the `subscribe()` caller — moving it to `boss.ts` creates implicit coupling between the composition root's wiring choices and the boot infrastructure. Queue names must be co-located with the subscription call.
+**Why it's wrong:** With `deploy.replicas: 6` in plain Compose (non-Swarm), Docker resolves the `app` service name to all replica IPs automatically via embedded DNS. Individual container names in Caddy config would require manual updates on every scale event.
 
-**Do this instead:** Create the queue inside `PgBossEventBus.subscribe()` using the derived `subscriberName.event` name. Remove `KNOWN_QUEUES` entirely.
+**Do this instead:** `reverse_proxy app:3000` — Docker DNS + Caddy `round_robin` handles all 6 replicas automatically.
+
+### Anti-Pattern 5: Missing `GET /health` Endpoint
+
+**What people do:** Configure Caddy `health_uri /health` but forget to add the endpoint to the Elysia app.
+
+**Why it's wrong:** Caddy health checks fail → Caddy marks all replicas unhealthy → no traffic is routed → service appears dead even though app containers are running.
+
+**Do this instead:** Add `app.get("/health", () => ({ status: "ok" }))` before `.listen()` in `index.ts`. This is a one-liner addition.
+
+### Anti-Pattern 6: Running pg-boss Workers on Only One Replica
+
+**What people do:** Add an env var like `WORKER=true` and only run workers on one designated instance to "avoid conflicts."
+
+**Why it's wrong:** pg-boss is explicitly designed for multi-master worker deployments (`SKIP LOCKED` ensures exactly-once delivery). Running workers on all instances increases throughput and resilience. Restricting to one instance reintroduces a single point of failure for job processing.
+
+**Do this instead:** Run workers on all 6 instances — this is the correct and intended pattern. pg-boss handles the concurrency safely.
 
 ---
 
 ## Scaling Considerations
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| POC / local dev | Current design is correct. One `boss.work()` per subscriber queue, all in-process. |
-| Multiple Node processes | pg-boss workers are multi-master safe. Each process running `boss.work()` on the same queue competes for jobs via `SKIP LOCKED`. Fan-out still correct — each subscriber has its own queue. |
-| High event volume | Tune `boss.work()` `teamSize` and `batchSize` options per queue. Queues can scale independently. |
+| Scenario | Architecture Impact |
+|----------|---------------------|
+| 6 replicas (this milestone) | Each holds a pg.Pool (default 10 connections). 6 × 10 = 60 connections. Postgres default `max_connections = 100` → comfortable headroom. |
+| 10+ replicas | Watch `max_connections`. Each pg-boss instance runs maintenance background timers — more instances = more concurrent maintenance queries. Consider reducing `superviseIntervalSeconds` or connection pool max size. |
+| High job volume | pg-boss worker `teamSize` option controls concurrency per worker. Tune per queue independently. Fan-out queues scale separately. |
+| Persistent volume loss | pg-boss schema and job tables are in Postgres. Named volume must persist for job durability. Never use `tmpfs` for Postgres data. |
 
 ---
 
 ## Sources
 
-- pg-boss v12.5.4 source: `node_modules/pg-boss/dist/manager.js` lines 203–220 (subscribe, unsubscribe, publish implementation) — **HIGH confidence**
-- pg-boss v12.5.4 source: `node_modules/pg-boss/dist/plans.js` lines 473–494 (subscribe, unsubscribe, getQueuesForEvent SQL) — **HIGH confidence**
-- pg-boss v12.5.4 types: `node_modules/pg-boss/dist/index.d.ts` and `types.d.ts` (SendOptions includes `db?: IDatabase` via ConnectionOptions) — **HIGH confidence**
-- Existing codebase: `src/infrastructure/events/PgBossEventBus.ts`, `src/index.ts`, `src/domains/shared/IEventBus.ts` — **HIGH confidence**
+- **pg-boss `SKIP LOCKED` mechanism:** `node_modules/pg-boss/dist/plans.js`, `fetchNextJob()`, line 525 — `FOR UPDATE SKIP LOCKED` confirmed in source (HIGH confidence)
+- **pg-boss race-safe schema creation:** `node_modules/pg-boss/dist/contractor.js`, `create()` — `CREATE_RACE_MESSAGE` assertion (HIGH confidence)
+- **pg-boss README — "Multi-master compatible":** Line 53 — "Multi-master compatible (for example, in a Kubernetes ReplicaSet)" (HIGH confidence)
+- **Docker Compose `deploy.replicas`:** https://docs.docker.com/compose/compose-file/deploy/ — `replicas: 6` under `deploy:` (HIGH confidence)
+- **Docker Compose networking — service DNS:** https://docs.docker.com/compose/how-tos/networking/ — services reachable by name on default bridge network (HIGH confidence)
+- **Caddy `reverse_proxy` syntax and health checks:** https://caddyserver.com/docs/caddyfile/directives/reverse_proxy — `health_uri`, `health_interval`, `lb_policy round_robin` (HIGH confidence)
+- **Caddy Docker image:** https://hub.docker.com/_/caddy — `caddy:2-alpine` current stable; Caddyfile at `/etc/caddy/` (HIGH confidence)
+- **`service_healthy` with `pg_isready`:** Docker Compose `depends_on` condition docs — standard established pattern (MEDIUM confidence — broadly documented community practice)
 
 ---
-*Architecture research for: pg-boss pub/sub migration + fan-out (v1.1 milestone)*
-*Researched: 2026-03-21*
+
+*Architecture research for: v1.3 Docker + Load Balancing milestone*
+*Researched: 2026-03-22*

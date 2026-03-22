@@ -1,297 +1,378 @@
 # Pitfalls Research
 
-**Domain:** pg-boss pub/sub fan-out migration (boss.send → boss.publish)
-**Researched:** 2026-03-21
-**Confidence:** HIGH — sourced from pg-boss v12.5.4 source code + official docs + codebase analysis
+**Domain:** Containerizing a Bun/Elysia/pg-boss event-driven app with Docker Compose replicas and Caddy load balancing
+**Researched:** 2026-03-22
+**Confidence:** HIGH — pg-boss advisory lock behavior verified from official docs; Caddy health check behavior from official docs; Docker Compose startup ordering from official docs; Bun Docker from official bun.sh guide
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: `boss.subscribe()` Requires the Target Queue to Exist First
+### Pitfall 1: pg-boss `start()` schema race on simultaneous boot — NOT actually dangerous
 
 **What goes wrong:**
-`boss.subscribe(event, queueName)` inserts a row into `pgboss.subscription` with a **foreign key constraint** (`name text NOT NULL REFERENCES pgboss.queue ON DELETE CASCADE`). If the queue named by `queueName` does not already exist in `pgboss.queue`, the INSERT fails with a foreign key violation error.
+6 replicas start simultaneously. All 6 call `boss.start()` at roughly the same time. First instinct is to fear a schema creation race where two instances try to `CREATE TABLE` the pgboss schema simultaneously and one crashes.
 
-```ts
-// WRONG — queue doesn't exist yet, subscribe throws FK violation
-await boss.subscribe("user.registered", "notification.user.registered");
-
-// CORRECT — queue created first, then subscribed
-await boss.createQueue("notification.user.registered");
-await boss.subscribe("user.registered", "notification.user.registered");
-```
-
-**Why it happens:**
-Developers assume `boss.subscribe()` works like event listeners — attach first, call second. In pg-boss, subscriptions are database rows with referential integrity. The queue is the backing store for jobs that will be dispatched when the event is published.
+**Why it matters:**
+This concern is real for *most* libraries, and teams add workarounds like "only the first pod runs migrations". For pg-boss, this is NOT needed — but not knowing this leads to over-engineered migration init containers.
 
 **How to avoid:**
-In `boss.ts`, `createQueue()` must be called for **all subscriber queues** before `boss.subscribe()`. For fan-out with two subscribers (`NotificationService`, `AuditService`), two separate queues need to be created:
-```ts
-await boss.createQueue("notification.user.registered");
-await boss.createQueue("audit.user.registered");
-await boss.subscribe("user.registered", "notification.user.registered");
-await boss.subscribe("user.registered", "audit.user.registered");
-```
+**Do nothing special.** pg-boss `start()` wraps all schema creation and migrations in `pg_advisory_xact_lock()`. From the official docs:
+
+> "All schema operations, both first-time provisioning and migrations, are nested within advisory locks to prevent race conditions during `start()`. ... One example of how this is useful would be including `start()` inside the bootstrapping of a pod in a ReplicaSet in Kubernetes."
+
+This is explicitly designed for multi-master use. All 6 instances can call `start()` concurrently — the advisory lock serializes schema work, and the others wait and then discover schema already installed.
 
 **Warning signs:**
-- Error: `insert or update on table "subscription" violates foreign key constraint`
-- `boss.subscribe()` called before `boss.createQueue()` for the same queue name
-- Tests pass in isolation but fail on a fresh database (queues don't persist in-memory)
+Any `ERROR: relation "pgboss.version" already exists` or similar DDL errors indicate your pg driver or connection string is NOT pointing at the same Postgres, or schema isolation is misconfigured.
 
 **Phase to address:**
-Phase 1 — Boot sequence refactor. The `createBoss()` function in `boss.ts` must be updated to create subscriber queues and register subscriptions before returning.
+Dockerfile + Compose phase — document this explicitly so the reader understands they don't need a schema migration init container.
 
 ---
 
-### Pitfall 2: `boss.publish()` Is Silent When No Subscribers Exist
+### Pitfall 2: Hardcoded `localhost:15432` connection string breaks inside Docker
 
 **What goes wrong:**
-`boss.publish(event, data, options)` queries `SELECT name FROM pgboss.subscription WHERE event = $1`, then calls `boss.send()` for each matching queue. If no subscriptions exist yet (because `boss.subscribe()` hasn't been called), `publish()` resolves successfully but **zero jobs are created** — silently.
-
-```ts
-// No error. No jobs. No subscribers existed at publish time.
-await boss.publish("user.registered", payload);
+`src/infrastructure/db/pool.ts` currently has:
+```typescript
+export const pool = new Pool({
+  connectionString: "postgres://admin:pass@localhost:15432/postgres",
+});
 ```
+`localhost` resolves to the container itself inside Docker. The port `15432` is the *host-machine* port mapping. Inside the Docker network, Postgres is reachable at the service name (e.g., `postgres`) on port `5432`. The app will fail with `ECONNREFUSED` on every connection attempt.
 
 **Why it happens:**
-Unlike `boss.send()`, which throws if the queue doesn't exist, `boss.publish()` treats "no subscribers" as a valid state — equivalent to broadcasting on an empty channel. There is no warning, no exception, and no return value (it returns `void`).
+The hardcoded string works fine for local dev (outside Docker) because `localhost:15432` maps to the Postgres container via the host port. Inside Docker Compose, containers communicate via service DNS names on container-internal ports.
 
 **How to avoid:**
-Subscriptions MUST be registered (`boss.subscribe()`) before any request can trigger `boss.publish()`. The boot sequence must be:
-1. `boss.start()`
-2. `boss.createQueue()` for all subscriber queues
-3. `boss.subscribe()` for all event-to-queue mappings
-4. Start HTTP server
+Replace the hardcoded string with an environment variable:
+```typescript
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL ?? "postgres://admin:pass@localhost:15432/postgres",
+});
+```
+In `docker-compose.yml`, set:
+```yaml
+environment:
+  DATABASE_URL: postgres://admin:pass@postgres:5432/postgres
+```
+The service name `postgres` (or whatever the Compose service is named) resolves via Docker's internal DNS. Port `5432` is the container-internal Postgres port.
+
+The same applies to `src/infrastructure/events/boss.ts` — if `PgBoss` receives a separate connection string or connection options, those must also be environment-variable-driven. In this codebase, `boss.ts` passes `{ db: new KyselyAdapter(kysely) }`, so the pool is the single source of truth — only the pool's connection string needs changing.
 
 **Warning signs:**
-- HTTP server starts before subscriptions are registered
-- `boss.publish()` returns without error but workers never fire
-- Logs show "tx committed" but no "[NotificationService] Sending welcome email" log
-- No rows in `pgboss.subscription` table after boot
+- App container logs: `ECONNREFUSED 127.0.0.1:15432` or `ECONNREFUSED ::1:15432`
+- App exits immediately after `docker compose up`
+- `docker compose logs app` shows connection errors before any pg-boss logs
 
 **Phase to address:**
-Phase 1 — Boot sequence refactor. The HTTP server start (step 6 in `index.ts`) must be gated on subscriptions being registered first.
+Dockerfile + Compose phase — this is the first thing to fix before any pg-boss or Caddy concerns.
 
 ---
 
-### Pitfall 3: `{ db: IDbClient }` Passes Through to `send()` But NOT to the Subscription Lookup
+### Pitfall 3: `pg.Pool` connection exhaustion with 6 replicas sharing one Postgres
 
 **What goes wrong:**
-The `boss.publish()` implementation does two things:
-1. Queries `pgboss.subscription` for subscriber queues using **`this.db`** (the pool)
-2. Calls `boss.send(queueName, data, options)` for each subscriber queue, passing `options` (which may include `db`)
+With the default `max` pool size of 10 per `pg.Pool` instance, 6 replicas create up to 60 simultaneous connections to one Postgres. Each pg-boss instance also opens its own internal connections for maintenance and monitoring (the `supervise` loop). During boot, all 6 instances call `start()` simultaneously, spiking connection demand further.
 
-The subscription lookup (step 1) always uses the shared connection pool, **never the transaction client**. Only the job INSERT (step 2) uses the transaction if `options.db` is provided.
-
-```ts
-// From pg-boss v12.5.4 source — manager.js:215-219
-async publish(event, data, options) {
-    const sql = plans.getQueuesForEvent(this.config.schema);
-    const { rows } = await this.db.executeSql(sql, [event]);       // ← uses pool, NOT options.db
-    await Promise.allSettled(rows.map(({ name }) => this.send(name, data, options)));  // ← options.db used here
-}
-```
+Postgres's default `max_connections` is 100. With 6 replicas × 10 pool connections = 60, plus pg-boss maintenance connections, you risk hitting the limit under load — or definitely if tests or the CI pipeline also connects.
 
 **Why it happens:**
-Subscriptions are configuration, not transactional data. They're set up at boot and don't change during a request. Reading them outside a transaction is correct behavior. However, developers may assume `{ db }` controls ALL queries inside `publish()`.
+`new Pool({ max: 10 })` is the pg default. Teams don't think about `max_connections` until they see `sorry, too many clients already` errors in production.
 
 **How to avoid:**
-This is **not a bug** — it's correct by design. The transactional guarantee still holds: the job INSERT goes into the same transaction as the domain write. The subscription lookup is a read that does not need to be inside the transaction. No code change needed, but the documentation must be accurate:
+Calculate: `6 replicas × max_pool_size ≤ postgres_max_connections - headroom`. For a development/POC setup with `max_connections=100`, use `max: 5` per pool (6 × 5 = 30, leaving 70 for maintenance, tools, and pg-boss internal connections).
 
-```ts
-// CORRECT — job INSERT is transactional, subscription lookup is not
-await this.eventBus.publish(
-  "user.registered",
-  payload,
-  { db: new KyselyAdapter(tx) }  // ensures job INSERT uses tx
-);
+In `pool.ts`:
+```typescript
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: parseInt(process.env.DB_POOL_MAX ?? "5"),
+});
 ```
 
+For production multi-replica setups, use PgBouncer (connection pooler) between the app and Postgres. For this POC, `max: 5` is sufficient.
+
+The pg-boss `max` constructor option separately controls pg-boss's own internal pool. When using `{ db: KyselyAdapter }` (as this codebase does), pg-boss doesn't manage its own pool — it routes through yours. This is already handled correctly.
+
 **Warning signs:**
-- Assuming `{ db }` makes the entire `publish()` call transactional (it does not)
-- Testing with an empty subscription table inside a transaction and expecting `publish()` to see new subscriptions added in the same transaction (it won't)
+- Postgres logs: `FATAL: sorry, too many clients already`
+- App logs: `Error: Connection terminated unexpectedly` or `remaining connection slots are reserved`
+- Replica pods failing readiness checks intermittently
 
 **Phase to address:**
-Phase 1 — Document this clearly in `PgBossEventBus` and in the README. No code change needed, but accuracy matters.
+Dockerfile + Compose phase — set `DB_POOL_MAX` environment variable. Document the math.
 
 ---
 
-### Pitfall 4: Old `KNOWN_QUEUES` Names Collide With New Subscriber Queue Names
+### Pitfall 4: Caddy health checks failing before pg-boss finishes boot sequence
 
 **What goes wrong:**
-In v1.0, the `KNOWN_QUEUES = ["user.registered"]` creates a queue named `"user.registered"` and `boss.work("user.registered", handler)` polls that exact queue. In v1.1, the pub/sub model introduces subscriber-specific queue names (e.g. `"notification.user.registered"`, `"audit.user.registered"`). If the old `"user.registered"` queue is still created, it now acts as an orphaned queue — no one subscribes to it via `boss.subscribe()`, no one calls `boss.work()` on it, and the event channel `"user.registered"` won't route jobs to it.
+Caddy's `health_uri /health` starts polling immediately after the app container reports as running. The app's boot sequence is:
+1. `setupSchema()` (creates users table)
+2. `createBoss()` → `boss.start()` (schema provision + start)
+3. `createWorkersPlugin()` (queue creation + subscription registration)
+4. `app.listen(PORT)` ← **HTTP starts here, health check accessible**
+
+If Caddy sends a health check before step 4 completes (which takes several seconds for pg-boss initialization), it gets `ECONNREFUSED` and marks the backend as down. Depending on `health_fails` and `health_interval`, this can mean Caddy marks a replica permanently unhealthy even after it's ready.
+
+With the existing architecture (`.listen()` comes AFTER all workers register), the health endpoint is unavailable during boot — which is **correct behavior** but requires Caddy to tolerate initial failures.
 
 **Why it happens:**
-Queue naming in send/work vs publish/subscribe is fundamentally different:
-- `send()` → queue name IS the event name (`"user.registered"`)
-- `publish()` → event name is a channel (`"user.registered"`), queue names are subscriber-specific (`"notification.user.registered"`)
-
-Keeping the old `boss.createQueue("user.registered")` alongside `boss.subscribe("user.registered", "notification.user.registered")` creates an orphaned queue with jobs that will never be processed.
+Default Caddy active health check: `health_fails: 1` (one failure = marked unhealthy), `health_interval: 30s`. If the app takes 5 seconds to boot and Caddy polls at second 3, one failure can mark it down with default settings.
 
 **How to avoid:**
-Remove `"user.registered"` from `KNOWN_QUEUES`. Replace with subscriber-specific queue names:
-```ts
-export const SUBSCRIBER_QUEUES = [
-  "notification.user.registered",
-  "audit.user.registered",
-] as const;
+Configure Caddy with:
 ```
+health_uri /health
+health_interval 10s
+health_passes 1
+health_fails 3
+health_timeout 5s
+```
+`health_fails 3` means the backend must fail 3 consecutive checks before being marked unhealthy. This gives ~20-30 seconds of tolerance — ample time for pg-boss to boot.
 
-Also consider calling `boss.deleteQueue("user.registered")` during migration if jobs from v1.0 are already in the database — or at minimum, drain it before removal.
+Additionally, set `health_passes 1` (one successful check restores health) so backends come online quickly once ready.
+
+In Docker Compose, add a `depends_on` with `service_healthy` condition on the Caddy service so it doesn't even start until the app containers report healthy — though this requires an app-level healthcheck in the Compose service definition.
 
 **Warning signs:**
-- `KNOWN_QUEUES` still contains `"user.registered"` after migration
-- `boss.work("user.registered", handler)` still being called alongside `boss.subscribe()`
-- Old jobs accumulating in `"user.registered"` queue with no workers
+- `docker compose logs caddy` shows upstream health failures at startup
+- Caddy logs: `upstream marked as unhealthy` shortly after start
+- `GET /health` works via `curl` but Caddy still shows 502
 
 **Phase to address:**
-Phase 1 — Rename/remove old queue names as part of `boss.ts` refactor.
+Caddy configuration phase — set `health_fails 3` or higher; document the timing contract.
 
 ---
 
-### Pitfall 5: `boss.work()` Still Called on the Event Name Instead of Subscriber Queue Name
+### Pitfall 5: Docker Compose `depends_on: postgres` only waits for container start, not Postgres readiness
 
 **What goes wrong:**
-After migrating `PgBossEventBus.subscribe()` to use `boss.subscribe()` + `boss.work()`, developers may call `boss.work()` on the wrong name. If `boss.work("user.registered", handler)` is called instead of `boss.work("notification.user.registered", handler)`, the worker polls the event channel name as a queue. That queue may not exist, or it may be the old v1.0 queue — but either way, jobs published via `boss.publish("user.registered", ...)` land in `"notification.user.registered"`, NOT in `"user.registered"`.
-
-```ts
-// WRONG — polls wrong queue after migration
-await boss.work("user.registered", handler);
-
-// CORRECT — polls the subscriber-specific queue that publish() routes to
-await boss.work("notification.user.registered", handler);
+```yaml
+depends_on:
+  - postgres
 ```
+This only waits for the Postgres container to *start*, not for PostgreSQL to be ready to accept connections. The Postgres process takes 1-3 seconds after container start to initialize. The app container starts, tries to connect, gets `ECONNREFUSED` or `connection refused`, and crashes before pg-boss `start()` completes.
+
+With `restart: unless-stopped`, the app will retry — but this creates log noise and a flapping startup that's confusing in development.
 
 **Why it happens:**
-The two APIs look similar. In v1.0: `boss.work(eventName)`. In v1.1: `boss.subscribe(eventName, queueName)` + `boss.work(queueName)`. The queue name passed to `boss.work()` must match the queue name passed to `boss.subscribe()`, not the event name.
+`depends_on` in Docker Compose does not understand application-level readiness. It's a container lifecycle signal only.
 
 **How to avoid:**
-In `PgBossEventBus.subscribe()`, derive a deterministic subscriber queue name from the event name and subscriber identity:
-```ts
-async subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  queueName: string, // e.g. "notification.user.registered"
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-): Promise<void> {
-  await this.boss.subscribe(event, queueName);
-  await this.boss.work(queueName, async ([job]) => {
-    if (!job) throw new Error(`No job received for queue: ${queueName}`);
-    await handler(job.data as DomainEventMap[K]);
-  });
-}
+Use `depends_on` with `condition: service_healthy` and add a healthcheck to the Postgres service:
+```yaml
+services:
+  postgres:
+    image: postgres:17
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    depends_on:
+      postgres:
+        condition: service_healthy
 ```
 
+This ensures Postgres is accepting connections before any app replica starts.
+
 **Warning signs:**
-- `boss.work()` receiving the event name string instead of a subscriber queue name
-- Worker registered but never fires (polling wrong queue)
-- No error thrown — pg-boss just polls an empty or non-existent queue
+- App container logs: `Error: Connection terminated unexpectedly` within first 2 seconds
+- Rapid restart loops in `docker compose up` output
+- `pg-boss started` log never appears on first startup
 
 **Phase to address:**
-Phase 2 — `PgBossEventBus` migration. The `subscribe()` method signature needs to accept a queue name, or use a naming convention to derive one.
+Docker Compose phase — add Postgres healthcheck; update `depends_on` condition.
 
 ---
 
-### Pitfall 6: Boot Sequence Race — HTTP Server Starts Before Subscriptions Are Registered
+### Pitfall 6: `createQueue` + `subscribe` idempotency — safe by design, but understand why
 
 **What goes wrong:**
-If the HTTP server starts accepting requests before `boss.subscribe()` is called, a request arriving during startup could trigger `boss.publish()` with zero subscriptions registered. The event is broadcast, no subscriber queues exist yet, and `boss.publish()` silently creates zero jobs. The event is permanently lost.
+All 6 instances simultaneously call `boss.createQueue(queueName)` and `boss.subscribe(event, queueName)` during the workers boot phase. If these are not idempotent, you get errors or duplicate subscriptions.
 
-```ts
-// DANGEROUS ORDERING
-await boss.start();
-app.listen(PORT);  // ← server up, requests can arrive
-await boss.subscribe(event, queue); // ← too late if a request arrived
-await boss.work(queue, handler);
-```
+**Reality check (HIGH confidence from pg-boss official docs):**
+- `createQueue()` uses `INSERT ... ON CONFLICT DO NOTHING` — idempotent, no error on duplicate
+- `subscribe()` also upserts the subscription record — idempotent
+- The `pgboss.subscription` table stores `(event, queue_name)` pairs; pg-boss deduplicates fan-out targets when publishing
 
-**Why it happens:**
-In v1.0, the old `index.ts` registered `boss.work()` before `.listen()` — but with pub/sub, `boss.subscribe()` must also complete before listen. Developers may forget to include `subscribe()` in the pre-listen boot phase.
+So 6 instances all subscribing `"notification.user.registered"` to `"user.registered"` results in one subscription row, not 6. No job duplication from the subscription layer.
+
+**What IS a concern:**
+If each instance registers its own polling `work()` loop against the same queue, all 6 workers compete to process jobs from that queue. This is **intentional and safe** — pg-boss uses `SELECT ... FOR UPDATE SKIP LOCKED` to ensure exactly-once delivery across competing workers. No job will be processed twice.
 
 **How to avoid:**
-The current `index.ts` already registers workers before `.listen()` (step 5 before step 6). Extend this pattern:
-```ts
-// 1. boss.start()
-// 2. boss.createQueue() for all subscriber queues
-// 3. boss.subscribe() for all event-to-queue mappings
-// 4. boss.work() for all subscriber queues
-// 5. app.listen()  ← LAST
-```
+Nothing special needed — but verify logs show only one `[infra] Subscription registered:` line per event type in steady state (subsequent instances will upsert silently).
 
 **Warning signs:**
-- `app.listen()` appearing before any `boss.subscribe()` or `boss.work()` calls in boot sequence
-- Events fire during high-load startup without any corresponding job creation
-- Intermittent missed events in integration tests that hit the server early
+- If you see a job handler fire more than once for a single event, it indicates the queue subscription was registered twice with different queue names (a naming convention bug, not a pg-boss bug)
+- Multiple rows in `pgboss.subscription` for the same `(event, queue_name)` pair (indicates a pg-boss internal bug — should not happen)
 
 **Phase to address:**
-Phase 1 — Boot sequence refactor. Make the ordering explicit and document it.
+Testing/verification phase — confirm exactly-once delivery under 6 replicas via `POST /users` smoke test.
 
 ---
 
-### Pitfall 7: `Promise.allSettled()` in `publish()` Swallows Errors Per Subscriber
+### Pitfall 7: Multi-stage Dockerfile — production stage missing source files or wrong entry point
 
 **What goes wrong:**
-`boss.publish()` internally uses `Promise.allSettled()` to send to all subscriber queues. This means if the job INSERT fails for one subscriber (e.g., constraint violation, connection issue), `publish()` resolves successfully — the failure is silently swallowed. Other subscribers receive their jobs normally.
-
-```ts
-// From pg-boss v12.5.4 source — manager.js:219
-await Promise.allSettled(rows.map(({ name }) => this.send(name, data, options)));
-// Individual failures are not re-thrown
+The official Bun Docker guide shows a multi-stage build where only `index.ts` and `node_modules` are copied to the final stage. This codebase has:
+```
+index.ts         ← top-level entry point
+src/             ← all TypeScript source
 ```
 
+If the final Docker stage only copies `index.ts` and not `src/`, the app crashes at runtime with `Cannot find module './src/...'`.
+
+Additionally, `genMockUser.ts` (a dev-only script in the project root) must NOT be included in the production image — it's not needed and may import dev dependencies.
+
 **Why it happens:**
-This is intentional library design for fan-out reliability: a failure to one subscriber should not prevent delivery to others. But from the caller's perspective, `publish()` always resolves even on partial failure.
+Copy-pasting the Bun official Dockerfile example (which assumes a single-file app) without adapting for a multi-file TypeScript project with a `src/` tree.
 
 **How to avoid:**
-For this POC, this behavior is acceptable — fan-out delivery is best-effort per subscriber. If partial delivery must be detected, implement a post-publish check by querying `boss.getQueueStats()` for subscriber queues, or subscribe to the `boss.on('error', ...)` event.
+In the final release stage, copy:
+```dockerfile
+FROM base AS release
+COPY --from=install /temp/prod/node_modules node_modules
+COPY --from=prerelease /usr/src/app/index.ts .
+COPY --from=prerelease /usr/src/app/src ./src
+COPY --from=prerelease /usr/src/app/package.json .
+USER bun
+EXPOSE 3000/tcp
+ENTRYPOINT ["bun", "run", "index.ts"]
+```
+
+Do NOT run `bun run build` unless you have a `build` script configured — Bun executes TypeScript directly, so no compilation step is needed.
+
+Also add a `.dockerignore` to prevent `node_modules`, `.git`, `docker-compose*`, and `.env` from being copied into the build context.
 
 **Warning signs:**
-- `publish()` resolves but no jobs appear in one subscriber queue
-- One subscriber queue has a configuration error (e.g., wrong policy) that causes INSERT failures
-- `boss.on('error', ...)` emitting errors that aren't being logged
+- Build succeeds but container exits immediately with `Error: Cannot find module './src/plugins/servicesPlugin'`
+- Image size is unexpectedly large (node_modules included in final stage from host)
 
 **Phase to address:**
-Phase 1 — Ensure `boss.on('error', console.error)` is already in place (it is, in the existing `createBoss()`). Add logging for clarity.
+Dockerfile phase — this is the first deliverable.
 
 ---
 
-### Pitfall 8: `IEventBus.subscribe()` Signature Doesn't Accommodate Queue Name
+### Pitfall 8: `bun.lock` lockfile filename and format must match Dockerfile
 
 **What goes wrong:**
-The existing `IEventBus.subscribe(event, handler)` signature has no way to specify which queue the subscriber should use. With pub/sub fan-out, multiple subscribers listen to the same event but need different queue names. If `PgBossEventBus.subscribe()` auto-generates a queue name internally (e.g., using a counter or UUID), the queue name is non-deterministic — different on every boot, leaving orphaned queues in the database.
+The official Bun Dockerfile uses `bun install --frozen-lockfile` which requires `bun.lock`. If the `COPY` instruction references the wrong filename (e.g., `bun.lockb` from older Bun versions), the build fails.
 
-```ts
-// Current interface — no queue name parameter
-subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-): Promise<void>;
-```
-
-**Why it happens:**
-The v1.0 `subscribe()` mapped directly to `boss.work(event, handler)` — one queue, one worker, event name is the queue name. In v1.1, each subscriber needs its own queue name, but the `IEventBus` interface doesn't expose this.
+Current Bun version (1.x) uses `bun.lock` (text format). The project already has `bun.lock` (confirmed in directory listing). Mixing `npm install` or `npm ci` with the `oven/bun` image is also wrong.
 
 **How to avoid:**
-Two options:
-1. **Extend the interface** with an optional `queueName` parameter: `subscribe(event, handler, queueName?)`
-2. **Derive the queue name** from a naming convention passed at construction time, e.g., a subscriber identifier prefix
-
-For this POC, option 1 keeps things explicit:
-```ts
-subscribe<K extends keyof DomainEventMap>(
-  event: K,
-  handler: (payload: DomainEventMap[K]) => Promise<void>,
-  queueName: string,
-): Promise<void>;
+Use exact filenames in the Dockerfile COPY:
+```dockerfile
+COPY package.json bun.lock /temp/dev/
+RUN cd /temp/dev && bun install --frozen-lockfile
 ```
 
+Do NOT mix `npm install` with `oven/bun` image.
+
 **Warning signs:**
-- `boss.subscribe()` called with dynamically generated queue names (`${event}-${Date.now()}`)
-- Multiple boots create multiple subscription rows in `pgboss.subscription` for the same event
-- Orphaned queues accumulate in `pgboss.queue` table
+- Docker build fails at `bun install --frozen-lockfile` with `No lockfile found`
+- Build succeeds but uses a different version of a dependency than local dev
 
 **Phase to address:**
-Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update interface if needed.
+Dockerfile phase — verify with `docker build .` locally before moving to Compose.
+
+---
+
+### Pitfall 9: `PORT` environment variable and host port conflicts with Compose replicas
+
+**What goes wrong:**
+With `deploy.replicas: 6`, Docker Compose assigns container-internal ports but does NOT automatically configure each replica on a different port. The app listens on `PORT` (defaulting to 3000). All 6 replicas listen on port 3000 internally — this is correct. But if `ports:` is specified in the Compose service (e.g., `"3000:3000"`), only one replica can bind the host port, and the others fail.
+
+Caddy must route to replicas by their internal Docker Compose addresses, not via host-mapped ports.
+
+**Why it happens:**
+Instinct to add `ports: "3000:3000"` for debugging. With `deploy.replicas`, port mapping causes conflicts.
+
+**How to avoid:**
+Do NOT add `ports:` to the app service in Compose when using replicas. Caddy accesses the app containers through Docker's internal network using the service name. Docker Compose with `deploy.replicas` and a named service exposes all replicas under the service's DNS name via round-robin or load-balanced DNS.
+
+Caddy config should use:
+```
+reverse_proxy app:3000
+```
+Where `app` is the Compose service name. Docker's embedded DNS resolves `app` to all replica IPs.
+
+If you need to access an individual replica for debugging, use `docker compose exec` or a separate debug port on a single-replica service.
+
+**Warning signs:**
+- `docker compose up` shows errors: `Bind for 0.0.0.0:3000 failed: port is already allocated`
+- Caddy reaches only one backend (round-robin DNS not working)
+- `502 Bad Gateway` on all requests from Caddy
+
+**Phase to address:**
+Docker Compose phase — explicitly document that `ports:` must be absent from replicated app service.
+
+---
+
+### Pitfall 10: Secrets and credentials leaking into image layers
+
+**What goes wrong:**
+If `DATABASE_URL` with a password is set via `ARG` in the Dockerfile, it bakes the credential into the image layer — visible via `docker history`. Similarly, if `.env` files are committed or copied into the image, credentials are exposed.
+
+**How to avoid:**
+- Use `ENV` (not `ARG`) for runtime values that must be set by Compose or the orchestrator
+- Never `COPY .env` into any Dockerfile stage
+- Add `.env` to `.dockerignore`
+- Pass credentials only at runtime via `docker-compose.yml` `environment:` section or Docker secrets
+
+For this POC, plaintext credentials in `docker-compose.yml` are acceptable (dev-only). Production use must use Docker secrets or a secrets manager.
+
+**Warning signs:**
+- `docker history <image>` shows database passwords in ENV layers
+- `.env` file committed to git alongside Dockerfile
+
+**Phase to address:**
+Dockerfile phase — add `.env` to `.dockerignore` immediately.
+
+---
+
+### Pitfall 11: `SIGTERM` not handled — pg-boss workers don't drain on container shutdown
+
+**What goes wrong:**
+Docker sends `SIGTERM` to gracefully shut down containers, followed by `SIGKILL` after a timeout (default 10s). The existing `index.ts` handles `SIGINT` (Ctrl+C) but NOT `SIGTERM`. In Docker Compose and Kubernetes, `SIGTERM` is the signal sent by `docker compose stop`, `docker compose down`, and container orchestrators.
+
+Without a `SIGTERM` handler, pg-boss workers don't drain active jobs before exit. Any job currently being processed by a worker will be abandoned, enter retry state (if retries configured), or be marked failed.
+
+**Why it happens:**
+Developers test with Ctrl+C locally, which sends `SIGINT`. Docker production environments use `SIGTERM`.
+
+**How to avoid:**
+Add `SIGTERM` handling alongside `SIGINT`:
+```typescript
+const shutdown = async () => {
+  console.log("[app] Shutting down...");
+  app.server?.stop();
+  await services.decorator.boss.stop({ graceful: true, timeout: 25000 });
+  await services.decorator.pool.end();
+  process.exit(0);
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+```
+
+`boss.stop({ graceful: true, timeout: 25000 })` waits up to 25 seconds for active workers to finish (within Docker's 30s kill timeout).
+
+**Warning signs:**
+- Jobs appear in `retry` state after `docker compose restart`
+- `docker compose down` hangs for 10 seconds before force-killing containers (the SIGKILL timeout)
+- No `[app] Shutting down...` log on container stop
+
+**Phase to address:**
+Dockerfile/Compose phase — fix shutdown handling before testing replicas.
 
 ---
 
@@ -299,10 +380,12 @@ Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update i
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Keep `KNOWN_QUEUES = ["user.registered"]` and just add subscriber queues alongside it | Zero refactor of boss.ts | Orphaned `"user.registered"` queue accumulates unconsumed jobs forever | Never — clean break required |
-| Use event name as queue name for single subscriber (`boss.subscribe("user.registered", "user.registered")`) | No interface change, minimal diff | Breaks when second subscriber is added; naming is ambiguous | Only if fan-out is never planned — not applicable here |
-| Skip `boss.deleteQueue("user.registered")` after migration | Simpler migration | Old jobs (if any) sit in dead queue; audit becomes confusing | Acceptable if v1.0 was dev-only with no real data |
-| Auto-generate queue names in `subscribe()` | No interface change | Non-deterministic, orphaned queues, restart creates new subscriptions | Never in production; acceptable in a one-shot POC only |
+| Hardcode `postgres://admin:pass@...` in source | No env var setup needed | Credentials in source; breaks in Docker | Never — move to env var in Dockerfile phase |
+| Use `oven/bun:latest` in Dockerfile | Always current | Build breaks on Bun major version bump | POC only; pin to `oven/bun:1.3` for stability |
+| Use `postgres:latest` in Compose | Always current Postgres | Schema behavior changes between Postgres major versions | Never in any persistent environment; pin to `postgres:17` |
+| Skip Postgres healthcheck in Compose | Simpler config | Flaky startup; app races Postgres init | Never — trivial to add, significant upside |
+| `deploy.replicas` without resource limits | Easy horizontal scale demo | Postgres connection exhaustion under load | Acceptable for POC with small pool size |
+| Skip `bun test` in Dockerfile prerelease stage | Faster builds | Broken images can be released | Only acceptable if tests run in CI before Docker build |
 
 ---
 
@@ -310,11 +393,13 @@ Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update i
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| `boss.subscribe()` | Called with event name as both args: `boss.subscribe("user.registered", "user.registered")` | Technically works for one subscriber, but ambiguous naming; use `"notification.user.registered"` |
-| `boss.publish()` with `{ db }` | Assuming the subscription lookup is also transactional | Subscription lookup uses `this.db` (pool); only job INSERTs use `options.db` |
-| `boss.work()` after `boss.subscribe()` | Calling `boss.work(eventName)` instead of `boss.work(queueName)` | Must call `boss.work(queueName)` where `queueName` matches what was passed to `boss.subscribe()` |
-| `boss.createQueue()` | Not called for subscriber queues before `boss.subscribe()` | FK constraint requires queue to exist; create queue first, subscribe second |
-| Queue cache | `boss.work()` triggers a `getQueueCache()` call that throws if queue doesn't exist | Ensure queue exists before calling `work()` |
+| pg-boss + Docker replicas | Add migration init container to prevent race | Don't — pg-boss `start()` uses advisory locks; safe for multi-master |
+| Caddy + Docker Compose replicas | Use static upstream list per replica IP | Use service DNS name (`app:3000`); Docker resolves to all replicas |
+| pg Pool + replicas | Default pool size × replicas exceeds Postgres `max_connections` | Set `max: 5` per pool for 6-replica POC; document the math |
+| Bun + Docker | Run `bun build` to compile before serving | Bun executes TypeScript directly; no build step needed (unless targeting Node) |
+| Caddy health checks + pg-boss boot | Assume instant health | `health_fails 3` tolerates startup time; pg-boss needs ~2-5s to boot |
+| SIGTERM + pg-boss workers | Handle only SIGINT | Handle both; `boss.stop({ graceful: true })` needed for clean worker drain |
+| Postgres service name in Compose | Use `localhost` or `127.0.0.1` | Use Compose service name (e.g., `postgres`) — Docker DNS resolves it |
 
 ---
 
@@ -322,21 +407,33 @@ Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update i
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Polling interval too low | High CPU / DB query load from workers | Use `pollingIntervalSeconds: 5` or higher for low-frequency events | At scale (many workers, busy DB) |
-| Subscriber queues not partitioned | "Noisy neighbor" effect in `pgboss.job` table | For POC scale (< 10K jobs/day), not an issue; for production, use `partition: true` on high-volume queues | Above ~100K jobs/day |
-| `Promise.allSettled` in publish hiding slow fan-out | `publish()` resolves fast but one subscriber queue gets stuck | Monitor queue stats; not a startup issue | When subscriber queues have different processing speeds |
+| Default pool size (10) × 6 replicas = 60 connections | `sorry, too many clients` Postgres errors under load | `max: 5` per pool for this POC | At any non-trivial load with default Postgres `max_connections: 100` |
+| pg-boss monitoring interval (60s default) on 6 instances | 6 concurrent maintenance queries every 60s | Acceptable for POC; increase `superviseIntervalSeconds` if needed | Not a POC concern; matters at high job volume |
+| Caddy `lb_policy random` with 6 backends | Uneven distribution during Caddy restarts | `round_robin` for predictable distribution in demos | Not a real perf issue at POC scale |
+
+---
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Hardcoded DB password in pool.ts | Credentials in git history | Move to `DATABASE_URL` env var; add to `.dockerignore` |
+| `postgres:latest` with default superuser `admin` | Weak credentials, unpredictable schema changes | Use pinned version; document that `admin`/`pass` are dev-only |
+| No `USER bun` in Dockerfile | App runs as root in container | Add `USER bun` before `ENTRYPOINT` (already in official Bun guide) |
+| Publishing Docker image with dev dependencies | Larger attack surface | `bun install --production` in final stage (multi-stage handles this) |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Subscription registered before server listens:** `boss.subscribe()` called in boot sequence before `app.listen()` — verify ordering in `index.ts`
-- [ ] **Subscriber queue created before subscription:** `boss.createQueue("notification.user.registered")` called before `boss.subscribe("user.registered", "notification.user.registered")` — verify in `boss.ts`
-- [ ] **Old `KNOWN_QUEUES` cleaned up:** `"user.registered"` removed from `KNOWN_QUEUES`; replaced with subscriber queue names — verify `boss.ts`
-- [ ] **`boss.work()` uses queue name, not event name:** Worker registered on `"notification.user.registered"` not `"user.registered"` — verify `PgBossEventBus.subscribe()`
-- [ ] **Both subscribers fire on single publish:** `POST /users` triggers logs from both `NotificationService` AND `AuditService` — verify in integration test or manual curl
-- [ ] **Transactional rollback still works:** `POST /users` with duplicate email → 409, no jobs in either subscriber queue — verify via `boss.getQueueStats()`
-- [ ] **`boss.on('error', ...)` still registered:** Error handler not accidentally removed during refactor — verify in `createBoss()`
+- [ ] **Postgres connection string:** Uses service name (`postgres:5432`) inside Docker, not `localhost:15432` — verify with `docker compose exec app env | grep DATABASE_URL`
+- [ ] **pg-boss multi-instance:** All 6 replicas start without schema creation errors — verify `docker compose logs app | grep "pg-boss started"` shows 6 lines
+- [ ] **SIGTERM handling:** Container stops gracefully — verify `docker compose stop` takes < 5s and logs `[app] Shutting down...`
+- [ ] **Caddy health check:** All replicas appear healthy after 30s startup window — check `docker compose logs caddy | grep unhealthy`
+- [ ] **Job deduplication:** `POST /users` under 6 replicas fires each worker exactly once (not 6 times) — verify notification logs show 1 per event, not 6
+- [ ] **Postgres healthcheck in Compose:** App doesn't race Postgres on `docker compose up --build` from scratch — verify first boot succeeds without connection errors
+- [ ] **No host port conflict:** `docker compose up` shows no `port is already allocated` errors — app service has no `ports:` mapping
+- [ ] **`.dockerignore` in place:** Image doesn't include `node_modules`, `.env`, or `.git` from build context — verify image size is reasonable (< 200MB)
 
 ---
 
@@ -344,11 +441,12 @@ Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update i
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Subscriptions registered after server started (events lost) | LOW | Stop server, fix boot order, restart. Events fired during window are permanently lost — acceptable in dev POC |
-| Wrong queue name in `boss.work()` (workers polling wrong queue) | LOW | Fix queue name, restart. Jobs in wrong queue can be manually moved or deleted |
-| Orphaned `"user.registered"` queue with unconsumed jobs | LOW | `boss.deleteQueue("user.registered")` or `boss.deleteAllJobs("user.registered")` then `boss.deleteQueue()` |
-| `boss.subscribe()` failed due to missing queue (FK error) | LOW | Create the queue, then call `boss.subscribe()` again (it's idempotent via `ON CONFLICT DO UPDATE`) |
-| `IEventBus.subscribe()` signature mismatch with AuditService | MEDIUM | Update interface + all call sites; TypeScript compiler will surface all mismatches |
+| Hardcoded connection string | LOW | Add `DATABASE_URL` env var; update pool.ts; redeploy |
+| Pool exhaustion hitting Postgres limits | LOW | Set `DB_POOL_MAX=5` env var; restart replicas |
+| Caddy marking backend permanently unhealthy | LOW | `docker compose restart caddy`; or increase `health_fails` and redeploy |
+| pg-boss schema left in partial state from crashed `start()` | MEDIUM | Connect to DB; `DROP SCHEMA pgboss CASCADE`; restart app (pg-boss recreates on next `start()`) |
+| SIGTERM not handled — jobs stuck in active state | MEDIUM | `SELECT * FROM pgboss.job WHERE state='active'`; manually retry or wait for expiration (`expireInSeconds`, default 15 min) |
+| 6 replicas all try `ports:` mapping — only 1 starts | LOW | Remove `ports:` from app service in Compose; use Caddy for external access |
 
 ---
 
@@ -356,25 +454,34 @@ Phase 2 — `PgBossEventBus` migration. Decide on naming convention and update i
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| `boss.subscribe()` requires queue to exist first | Phase 1: Boot sequence | `boss.getQueue("notification.user.registered")` returns non-null after boot |
-| `publish()` silent with no subscribers | Phase 1: Boot sequence | Subscriptions exist in `pgboss.subscription` before first request |
-| `{ db }` only affects job INSERTs, not subscription lookup | Phase 1: Documentation | Comment in `PgBossEventBus.publish()` explains this behavior |
-| Old `KNOWN_QUEUES` / old queue name collision | Phase 1: boss.ts refactor | No `"user.registered"` queue exists after migration |
-| `boss.work()` on wrong queue name | Phase 2: PgBossEventBus migration | Worker fires on correct queue; verified by both subscriber logs appearing |
-| Boot sequence race (server before subscribe) | Phase 1: Boot sequence | `index.ts` has subscriptions registered before `app.listen()` |
-| `Promise.allSettled` swallows errors | Phase 1: Error handling | `boss.on('error', ...)` in place; verify both queues get jobs after publish |
-| `IEventBus.subscribe()` signature gap | Phase 2: Interface update | TypeScript compiles cleanly with both NotificationService and AuditService wired |
+| Hardcoded localhost connection string | Phase 1: Dockerfile | `docker compose up` shows pg-boss started on all replicas |
+| Pool exhaustion (6 × default max) | Phase 1: Dockerfile / Compose env vars | No Postgres `too many clients` errors under load |
+| SIGTERM not handled | Phase 1: Dockerfile | `docker compose stop` completes < 10s with shutdown logs |
+| Multi-stage Dockerfile missing src/ | Phase 1: Dockerfile | Container starts without module resolution errors |
+| bun.lock filename mismatch | Phase 1: Dockerfile | `docker build .` completes without lockfile errors |
+| Secrets leaking into image layers | Phase 1: Dockerfile | `docker history` shows no plaintext credentials in ENV |
+| Postgres healthcheck missing from Compose | Phase 2: Compose | First `docker compose up --build` succeeds without connection races |
+| App `depends_on` postgres without healthcheck | Phase 2: Compose | Cold start never shows ECONNREFUSED errors |
+| Host port conflicts with replicas | Phase 2: Compose | All 6 replicas start; no `port is already allocated` |
+| pg-boss start() race (non-issue — advisory locks) | Phase 2: Compose | All 6 replicas log `pg-boss started` without DDL errors |
+| createQueue/subscribe idempotency (safe by design) | Phase 2: Compose | Single subscription row per queue in pgboss.subscription |
+| Caddy health check timing | Phase 3: Caddy | All backends healthy within 30s of startup |
+| Caddy DNS-based service routing | Phase 3: Caddy | Requests distributed across all 6 replicas (visible in logs) |
 
 ---
 
 ## Sources
 
-- **pg-boss v12.5.4 source** (`node_modules/pg-boss/dist/manager.js`, `plans.js`, `index.d.ts`) — HIGH confidence; read directly
-- **pg-boss official docs** (`https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/pubsub.md`) — HIGH confidence
-- **pg-boss official docs** (`https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/queues.md`) — HIGH confidence
-- **Codebase analysis** (`src/infrastructure/events/boss.ts`, `PgBossEventBus.ts`, `src/index.ts`) — HIGH confidence; read directly
-- **PROJECT.md v1.1 milestone requirements** — HIGH confidence; canonical source of truth
+- pg-boss `start()` advisory lock documentation: https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/ops.md — explicitly states multi-master safety via `pg_advisory_xact_lock()`
+- pg-boss worker documentation: https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/workers.md — confirms `SKIP LOCKED` for exactly-once delivery across competing workers
+- pg-boss constructor options: https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/constructor.md — `max` pool size, `migrate` flag, `supervise` flag
+- pg-boss pub-sub API: https://raw.githubusercontent.com/timgit/pg-boss/master/docs/api/pubsub.md — `subscribe()` idempotency behavior
+- pg-boss introduction: https://raw.githubusercontent.com/timgit/pg-boss/master/docs/introduction.md — multi-master compatible, SKIP LOCKED
+- Caddy reverse_proxy active health check documentation: https://caddyserver.com/docs/caddyfile/directives/reverse_proxy — `health_fails`, `health_passes`, `health_interval` options
+- Docker Compose startup ordering: https://docs.docker.com/compose/how-tos/startup-order/ — `condition: service_healthy`, Postgres `pg_isready` healthcheck
+- Bun Docker guide (official): https://bun.sh/guides/ecosystem/docker — multi-stage Dockerfile, `--frozen-lockfile`, `USER bun`
+- Codebase inspection: `src/infrastructure/db/pool.ts` (hardcoded connection string), `src/index.ts` (SIGINT only), `docker-compose.postgres.yaml` (no healthcheck)
 
 ---
-*Pitfalls research for: pg-boss publish/subscribe fan-out migration (v1.0 send→publish, v1.1)*
-*Researched: 2026-03-21*
+*Pitfalls research for: Bun/Elysia/pg-boss → Docker Compose 6 replicas + Caddy containerization*
+*Researched: 2026-03-22*
