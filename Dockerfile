@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # ── Stage 1: install dependencies ────────────────────────────────────────────
 FROM oven/bun:1.3.11 AS install
 
