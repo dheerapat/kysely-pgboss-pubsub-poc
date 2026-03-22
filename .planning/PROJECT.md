@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events, with a third observer (AuditService) proving native fan-out. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven and demonstrated end-to-end with a working HTTP API, rollback demo, and annotated README.
+A structured proof-of-concept demonstrating lightweight domain-driven development and cross-domain communication using pg-boss as a transactional event bus backed by PostgreSQL. Two domains (User and Notification) communicate asynchronously via typed domain events, with a third observer (AuditService) proving native fan-out. The codebase is organized using Elysia's `decorate` plugin pattern — a clean composition root composes three focused plugins (servicesPlugin, workersPlugin, userRoutesPlugin) with full TypeScript type inference. The core thesis — that pg-boss + KyselyAdapter enables atomic save-and-publish inside a single database transaction — is proven and demonstrated end-to-end with a working HTTP API, rollback demo, and annotated README.
 
 ## Core Value
 
@@ -43,26 +43,16 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ Rollback regression confirmed with two subscriber queues: duplicate email → HTTP 409, zero jobs in both queues — v1.1
 - ✓ README documents pub/sub vs queue-based approach, `pgboss.subscription` table role, fan-out mechanism, boot sequence rationale — v1.1
 - ✓ `PgBossEventBus` inline comment documents `{ db }` partial-transaction semantics (subscription lookup uses pool; job INSERTs use transaction) — v1.1
-
-## Current Milestone: v1.2 Elysia Decorate Refactor
-
-**Goal:** Refactor `src/index.ts` from a monolithic wiring file into a clean composition root using Elysia's `decorate` pattern.
-
-**Target features:**
-- `servicesPlugin` decorates all wired dependencies (userRepo, userService, eventBus, notificationService, auditService) onto Elysia context
-- `workersPlugin` registers all event bus subscriptions, extracted from `index.ts`
-- `userRoutesPlugin` encapsulates `/users` GET and POST routes with context-injected services
-- `index.ts` becomes a pure composition root: imports plugins, composes them, starts server
-
-### Validated in Phase 8: Plugin Extraction
-
-- ✓ `servicesPlugin` decorates all wired deps onto Elysia context using `.decorate()` — Phase 8
-- ✓ `workersPlugin` registers all `IEventBus.subscribe()` calls, extracted from `index.ts` — Phase 8
-- ✓ `userRoutesPlugin` encapsulates `/users` GET and POST handlers — Phase 8
+- ✓ `servicesPlugin` decorates all wired deps onto Elysia context using `.decorate()` — v1.2
+- ✓ `workersPlugin` registers all `IEventBus.subscribe()` calls, extracted from `index.ts` — v1.2
+- ✓ `userRoutesPlugin` encapsulates `/users` GET and POST handlers with context-injected services — v1.2
+- ✓ `index.ts` is a pure composition root — no `new Service()`, no inline `await eventBus.subscribe()` — v1.2
+- ✓ Boot order enforced: workers plugin awaited before `.listen()` — v1.2
+- ✓ Graceful shutdown accesses `boss`/`pool` via `services.decorator` — no direct infra imports in `index.ts` — v1.2
 
 ### Active
 
-- [ ] `index.ts` is a pure composition root — no instantiation, no subscription wiring inline
+*(No active requirements — all three milestones complete. Start `/gsd-new-milestone` for v2 planning.)*
 
 ### Out of Scope
 
@@ -80,13 +70,13 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 
 ## Context
 
-**Status:** v1.0 and v1.1 both shipped 2026-03-21. v1.2 Phase 8 (Plugin Extraction) complete 2026-03-21 — three Elysia plugins created (servicesPlugin, workersPlugin, userRoutesPlugin), all requirements PLUG-01/02/03 and TYPE-01 satisfied. Phase 9 (Composition Root) is next.
+**Status:** v1.0, v1.1, and v1.2 all shipped. Codebase is feature-complete for the POC thesis. All three milestones archived.
 
 **Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
 
-**Codebase:** ~510 LOC TypeScript (src/), clean folder-per-domain structure. Tests via bun:test.
+**Codebase:** ~592 LOC TypeScript (src/), clean folder-per-domain structure with `src/plugins/` for Elysia plugin layer. Tests via bun:test.
 
-**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created. Native pub/sub (`boss.publish`) fans out to all subscribed queues automatically via the `pgboss.subscription` table — no manual routing needed.
+**Architecture proven:** With a separate message broker (Kafka, RabbitMQ), you face the dual-write problem. pg-boss + KyselyAdapter eliminates this by storing jobs in the same PostgreSQL database — publish inside the same transaction as the domain write. If the tx rolls back, the job is never created. Native pub/sub (`boss.publish`) fans out to all subscribed queues automatically via the `pgboss.subscription` table — no manual routing needed. `index.ts` is now a clean composition root using Elysia's `decorate` pattern.
 
 **v2 ideas (not planned):**
 - V2-01: Second event type (e.g. `user.deactivated`) to show multi-event support
@@ -111,6 +101,9 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 | Queue lifecycle in `PgBossEventBus.subscribe()` not `boss.ts` | Callers never construct queue names; naming convention lives in one place | ✓ Good — AuditService wired in 3 lines with zero queue knowledge |
 | `boss.publish()` for fan-out | Routes to all subscribers via `pgboss.subscription` table automatically | ✓ Good — zero routing code in domain layer; fan-out is a pg-boss concern |
 | Boot order: `createQueue → boss.subscribe → boss.work` before `app.listen()` | FK constraint on `pgboss.subscription` requires this ordering; HTTP before subscriptions → silent event loss | ✓ Good — enforced in index.ts; no race conditions |
+| Async factory pattern for `servicesPlugin` | `.onStart()` alternative loses TypeScript type inference on decorated properties | ✓ Good — TypeScript infers all context property types from concrete plugin instance |
+| `createWorkersPlugin` accepts service instances (not `.use(servicesPlugin)`) | `subscribe()` calls are async — caller must await before `.listen()`, explicit boot ordering | ✓ Good — composition root controls ordering; no hidden sequencing |
+| `services.decorator.boss/pool` for shutdown in `index.ts` | Avoids re-importing infra into composition root — pure plugin composition | ✓ Good — no direct infra imports in index.ts post-refactor |
 
 ## Constraints
 
@@ -137,4 +130,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 8 (Plugin Extraction) complete*
+*Last updated: 2026-03-22 after v1.2 milestone (Elysia Decorate Refactor) complete*

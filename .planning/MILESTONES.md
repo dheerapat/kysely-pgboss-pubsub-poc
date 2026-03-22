@@ -1,5 +1,17 @@
 # Milestones
 
+## v1.2 Elysia Decorate Refactor (Shipped: 2026-03-22)
+
+**Phases completed:** 2 phases, 3 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Async Elysia plugin factory that wires all infra/domain services and decorates them onto context with full TypeScript inference — no `any` casts
+- Two Elysia plugin factories extracted from index.ts — subscription wiring in workersPlugin, typed route handlers in userRoutesPlugin, zero closures
+- src/index.ts rewritten as pure Elysia composition root — zero service instantiation, zero inline subscribe, boot order enforced via awaited workersPlugin, graceful shutdown via services.decorator
+
+---
+
 ## v1.1 pg-boss Native Pub/Sub + Fan-Out (Shipped: 2026-03-21)
 
 **Phases completed:** 3 phases, 7 plans, 12 tasks

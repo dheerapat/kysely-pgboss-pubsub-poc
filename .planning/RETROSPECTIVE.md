@@ -94,6 +94,46 @@
 
 ---
 
+## Milestone: v1.2 — Elysia Decorate Refactor
+
+**Shipped:** 2026-03-22
+**Phases:** 2 | **Plans:** 3 | **Sessions:** ~1
+
+### What Was Built
+- `servicesPlugin` async factory — wires all 7 infra/domain services and decorates them onto Elysia context with full TypeScript type inference (no `any` casts)
+- `workersPlugin` async factory — all `eventBus.subscribe()` calls extracted verbatim from `index.ts`; caller awaits before `.listen()` enforces boot ordering
+- `userRoutesPlugin` factory — `/users` GET and POST routes rewritten to use context destructuring (`{ userRepo }`, `{ userService }`) instead of closure variables
+- `src/index.ts` rewritten as a pure composition root — zero `new Service()` calls, zero inline `await eventBus.subscribe()` calls; graceful shutdown via `services.decorator.boss/pool`
+
+### What Worked
+- **Async factory over `.onStart()` hook**: Awaiting async construction before `.decorate()` gives TypeScript concrete types on the plugin's decorated properties — no type assertions needed anywhere
+- **`Awaited<ReturnType<typeof createServicesPlugin>>` as route plugin param type**: Ties route context types directly to the plugin instance type without annotation duplication
+- **`services.decorator.boss/pool` for shutdown**: Accessing infra via the plugin's `.decorator` property kept `index.ts` entirely free of direct infra imports post-refactor
+- **Phase 8 left `index.ts` untouched**: Extracting plugins first (Phase 8) then composing them (Phase 9) meant each phase had exactly one change surface and verification was unambiguous
+- **Verification gate passed cleanly**: Phase 8 VERIFICATION.md checked all 4 success criteria against the live codebase; zero gaps found
+
+### What Was Inefficient
+- **ROADMAP.md had Phase 8 marked "Not started / 0/TBD"**: The progress table wasn't kept current during execution — required retroactive correction at milestone time
+- **STATE.md `current_focus` was stale**: Still showed Phase 08 after Phase 09 completed — STATE sync lagged behind execution
+
+### Patterns Established
+- **Async factory plugin pattern**: `export async function createPlugin() { const dep = await setup(); return new Elysia({ name }).decorate('dep', dep); }` — canonical for any plugin that requires async boot
+- **Worker plugin accepts service instances (not `.use()`)**: Explicit constructor args over plugin composition for async-bootstrapped workers — boot ordering remains in the composition root's control
+- **Composition root as single source of boot order**: `index.ts` is the only place `await createWorkersPlugin()` happens before `.listen()` — no hidden sequencing in nested plugins
+
+### Key Lessons
+1. **Plugin-level type inference > route-level annotations**: Passing the full `servicesPlugin` instance to `createUserRoutesPlugin` and calling `.use()` internally gives TypeScript all it needs — zero manual type annotations in route handlers
+2. **`services.decorator` as an escape hatch for shutdown handlers**: The composition root needs `boss.stop()` and `pool.end()`, but they shouldn't be re-imported. Accessing them via the plugin's `.decorator` property is the idiomatic Elysia solution
+3. **Sequential plugin extraction before composition**: Extracting plugins in one phase and wiring them in the next prevents the "chicken-and-egg" problem of verifying composition when the plugins don't exist yet
+4. **Small scope = fast execution**: With 7 requirements, a clear three-plugin split, and zero behavioral changes required, all 3 plans executed in under 15 minutes total with zero rework
+
+### Cost Observations
+- Model mix: ~90% sonnet, ~10% opus (planning)
+- Sessions: 1 active session (~2 hours)
+- Notable: Zero debugging time — async factory pattern resolved type inference without any trial-and-error; plan spec was complete
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -102,6 +142,7 @@
 |-----------|----------|--------|------------|
 | v1.0 | ~4 | 4 | Initial project; established GSD workflow patterns |
 | v1.1 | ~1 | 3 | Research-first; zero rework; fan-out via native pub/sub |
+| v1.2 | ~1 | 2 | Async factory plugin pattern; sequential extract-then-compose phasing |
 
 ### Cumulative Quality
 
@@ -109,6 +150,7 @@
 |-----------|-------|----------|-------------------|
 | v1.0 | 9+ | Core paths | 0 (Bun stdlib only) |
 | v1.1 | 9+ (unchanged) | Core paths | 0 (pg-boss already a dep) |
+| v1.2 | 9+ (unchanged) | Core paths | 0 (Elysia already a dep) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -116,3 +158,4 @@
 2. Track requirement completion inline during execution, not retroactively at milestone time
 3. Research phase quality directly determines execution speed — surface constraints before writing code
 4. Required parameters over optional ones when missing identity causes silent correctness bugs
+5. Sequential phasing (extract plugins first, compose second) keeps verification surfaces clean and unambiguous

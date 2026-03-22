@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Elysia Decorate Refactor
-status: unknown
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-22T03:23:21.088Z"
+status: complete
+stopped_at: v1.2 milestone archived
+last_updated: "2026-03-22T10:32:00.000Z"
 progress:
   total_phases: 2
   completed_phases: 2
@@ -16,24 +16,25 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-21)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** Phase 08 — plugin-extraction
+**Current focus:** Planning next milestone — run `/gsd-new-milestone` to start v2 planning.
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
+All milestones shipped (v1.0, v1.1, v1.2). Ready for next milestone.
 
-## v1.2 Milestone: Elysia Decorate Refactor (In Progress)
+## v1.2 Milestone: Elysia Decorate Refactor (COMPLETE)
 
 | Phase | Name | Status | Plans | Progress |
 |-------|------|--------|-------|----------|
-| 8 | Plugin Extraction | Not started | TBD | 0% |
-| 9 | Composition Root | Not started | TBD | 0% |
+| 8 | Plugin Extraction | Complete | 2/2 | 100% |
+| 9 | Composition Root | Complete | 1/1 | 100% |
 
-**0/7 v1.2 requirements complete.**
+**7/7 v1.2 requirements complete.**
+
+Archived: `.planning/milestones/v1.2-ROADMAP.md`, `.planning/milestones/v1.2-REQUIREMENTS.md`
 
 ## Accumulated Context
 
@@ -52,16 +53,17 @@ None.
 
 ### Blockers/Concerns
 
-None — v1.1 shipped clean; refactor is additive file reorganization only.
+None — v1.2 shipped clean. All three milestones complete.
 
 ## Log
 
 - 2026-03-21: v1.0 milestone complete — all requirements shipped
 - 2026-03-21: v1.1 milestone complete — pub/sub migration, fan-out, rollback regression, README shipped
 - 2026-03-21: v1.2 milestone started — Elysia Decorate Refactor roadmap created (Phases 8-9)
+- 2026-03-22: v1.2 milestone complete — Elysia plugin pattern fully applied; index.ts is a pure composition root
 
 ## Session Continuity
 
-Last session: 2026-03-22T03:23:21.085Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-22
+Stopped at: v1.2 milestone archived
 Resume file: None
