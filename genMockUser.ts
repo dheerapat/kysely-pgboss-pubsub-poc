@@ -29,6 +29,10 @@ function parseArgs(argv: string[]): Config {
     throw new Error(`Invalid -n value: must be a positive integer`);
   }
 
+  if (count > 1_000_000) {
+    throw new Error(`Can not generate more than 1 million users`);
+  }
+
   return {
     count,
     output: get("-o", "bodies.jsonl"),
@@ -36,12 +40,33 @@ function parseArgs(argv: string[]): Config {
   };
 }
 
+// --- Sequence encoder ---
+
+function toSequenceId(index: number): string {
+  const LETTERS = 26;
+  const DIGITS = 10;
+  const BLOCK = LETTERS * LETTERS * LETTERS; // 17,576 letter combos
+  const TOTAL = BLOCK * DIGITS * DIGITS * DIGITS; // 17,576,000 total
+
+  if (index >= TOTAL)
+    throw new Error(`Index ${index} exceeds max sequence ${TOTAL}`);
+
+  const digits = index % 1000;
+  const letters = Math.floor(index / 1000);
+
+  const l0 = String.fromCharCode(65 + (letters % 26));
+  const l1 = String.fromCharCode(65 + (Math.floor(letters / 26) % 26));
+  const l2 = String.fromCharCode(65 + (Math.floor(letters / 676) % 26));
+
+  return `${l2}${l1}${l0}${String(digits).padStart(3, "0")}`;
+}
+
 // --- Generator ---
 
 function generateUser(index: number, domain: string): User {
-  const uid = crypto.randomUUID().slice(0, 8);
+  const id = toSequenceId(index);
   return {
-    email: `user_${uid}@${domain}`,
+    email: `user_${id}@${domain}`,
     name: `User ${index + 1}`,
   };
 }
