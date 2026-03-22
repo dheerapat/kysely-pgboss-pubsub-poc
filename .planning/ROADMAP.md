@@ -90,10 +90,11 @@ Plans:
   2. Successive `POST /users` requests route to different replicas (round-robin observable in replica logs)
   3. Caddy actively health-checks `/health` every 10s and stops routing to replicas that fail 3 consecutive checks
   4. A single `POST /users` results in exactly one `user.registered` job processed (no duplicate processing across competing replicas)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: TBD
+- [ ] 12-01-PLAN.md — Caddyfile + docker-compose.yml Caddy service (CADDY-01, CADDY-02, CADDY-03)
+- [ ] 12-02-PLAN.md — Full stack verification: round-robin, exactly-once jobs, health monitoring
 
 ## Progress
 
