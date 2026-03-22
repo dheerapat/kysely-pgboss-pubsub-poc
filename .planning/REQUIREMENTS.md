@@ -27,9 +27,9 @@
 
 ### Caddy Load Balancing
 
-- [ ] **CADDY-01**: `Caddyfile` configures `reverse_proxy app:3000` with `lb_policy round_robin`
-- [ ] **CADDY-02**: `Caddyfile` sets `health_uri /health`, `health_interval 10s`, `health_fails 3`
-- [ ] **CADDY-03**: Caddy service in Docker Compose exposes port `8080:8080`
+- [x] **CADDY-01**: `Caddyfile` configures `reverse_proxy app:3000` with `lb_policy round_robin`
+- [x] **CADDY-02**: `Caddyfile` sets `health_uri /health`, `health_interval 10s`, `health_fails 3`
+- [x] **CADDY-03**: Caddy service in Docker Compose exposes port `8080:8080`
 
 ## Future Requirements
 
@@ -60,9 +60,9 @@
 | COMP-02 | Phase 11 | Complete |
 | COMP-03 | Phase 11 | Complete |
 | COMP-04 | Phase 11 | Complete |
-| CADDY-01 | Phase 12 | Pending |
-| CADDY-02 | Phase 12 | Pending |
-| CADDY-03 | Phase 12 | Pending |
+| CADDY-01 | Phase 12 | Complete |
+| CADDY-02 | Phase 12 | Complete |
+| CADDY-03 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 13 total

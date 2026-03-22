@@ -93,7 +93,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Caddyfile + docker-compose.yml Caddy service (CADDY-01, CADDY-02, CADDY-03)
+- [x] 12-01-PLAN.md — Caddyfile + docker-compose.yml Caddy service (CADDY-01, CADDY-02, CADDY-03)
 - [ ] 12-02-PLAN.md — Full stack verification: round-robin, exactly-once jobs, health monitoring
 
 ## Progress
@@ -111,7 +111,7 @@ Plans:
 | 9. Composition Root | v1.2 | 1/1 | Complete | 2026-03-22 |
 | 10. App Containerization Foundation | v1.3 | 2/2 | Complete    | 2026-03-22 |
 | 11. Docker Compose Orchestration | v1.3 | 1/1 | Complete   | 2026-03-22 |
-| 12. Caddy Load Balancing + Verification | v1.3 | 0/? | Not started | - |
+| 12. Caddy Load Balancing + Verification | v1.3 | 1/2 | In Progress|  |
 
 ---
 
