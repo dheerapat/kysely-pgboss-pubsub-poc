@@ -61,13 +61,19 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - `GET /health` endpoint for Caddy health monitoring
 - pg-boss workers run on all 6 instances (DB locking ensures safe concurrent job processing)
 
+### Validated in Phase 10: app-containerization-foundation
+
+- ✓ `DATABASE_URL` env var with `localhost:15432` fallback for local dev (CONT-01) — v1.3
+- ✓ `GET /health` returns HTTP 200 with `{"status":"ok"}` for Caddy liveness checks (CONT-02) — v1.3
+- ✓ `SIGTERM` triggers graceful drain: HTTP stop → boss.stop() → pool.end() → exit (CONT-03) — v1.3
+- ✓ Multi-stage Dockerfile using `oven/bun:1.3.11` — production deps only in runtime image (DOCK-01, DOCK-03) — v1.3
+- ✓ `.dockerignore` excludes `node_modules`, `.git`, `.env`; `bun.lock` accessible for `--frozen-lockfile` (DOCK-02) — v1.3
+
 ### Active
 
-- [ ] Multi-stage Dockerfile producing a minimal Bun runtime image
 - [ ] Docker Compose with `deploy.replicas: 6` for the app service
 - [ ] PostgreSQL service in Compose with persistent volume
 - [ ] Caddy service with round-robin `reverse_proxy` to app instances
-- [ ] `GET /health` endpoint returning 200 OK
 - [ ] Caddyfile with health check config (`health_uri /health`, 10s interval)
 
 ### Out of Scope
@@ -146,4 +152,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after v1.3 milestone (Docker + Load Balancing) started*
+*Last updated: 2026-03-22 after Phase 10 (app-containerization-foundation) complete*
