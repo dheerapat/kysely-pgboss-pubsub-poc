@@ -134,6 +134,50 @@
 
 ---
 
+## Milestone: v1.3 — Docker + Load Balancing
+
+**Shipped:** 2026-03-22
+**Phases:** 3 | **Plans:** 5 | **Sessions:** ~1
+
+### What Was Built
+- `DATABASE_URL` env var with `localhost:15432` fallback — environment-driven DB config for containerized deployment
+- `GET /health` endpoint returning `{"status":"ok"}` — Caddy liveness probe target
+- `SIGTERM` graceful drain: HTTP stop → boss.stop() (worker drain) → pool.end() → exit(0)
+- Multi-stage Dockerfile with `oven/bun:1.3.11` — production deps only in runtime image, `bun.lock` preserved for `--frozen-lockfile`
+- `.dockerignore` excluding node_modules, .git, .env from build context
+- `docker-compose.yml` with `postgres:17` + `pg_isready` healthcheck, 6 app replicas (`deploy.replicas: 6`), no host `ports:` on app service
+- `Caddyfile` with `lb_policy round_robin`, `health_uri /health`, `health_interval 10s`, `health_fails 3`; Caddy service exposes `8080:8080`
+- Full live stack validated: all 6 replicas handling round-robin requests, exactly-once pg-boss job processing confirmed across competing workers
+
+### What Worked
+- **Research surfaced the pg18 compatibility risk early**: Pinning `postgres:17` was a direct research output — avoided a potential runtime incompatibility with pg-boss 12.5.4
+- **`health_fails 3` rather than default**: Identifying pg-boss boot latency (~2-5s) during planning prevented premature unhealthy marking in Caddy before replicas were ready
+- **Env-var-capped pool max**: Encoding `PGBOSS_MAX_CONNECTIONS=5` in Compose with `pool.ts` reading it meant the connection math (6×5=30) was enforced at the infrastructure level, not documentation
+- **pg-boss multi-master safety was pre-validated**: Advisory lock behavior confirmed in research — zero schema race errors during live testing of all 6 concurrent `boss.start()` calls
+- **Phase 12 verification ran exactly once**: Clear success criteria (round-robin observable, exactly-once job, health check test) meant verification was a single pass with no retries
+
+### What Was Inefficient
+- **REQUIREMENTS.md checkboxes for CONT-01 through DOCK-03 were never updated during Phase 10 execution**: Traceability table showed "Pending" for all Phase 10 requirements at milestone completion despite all being delivered — same pattern as v1.0 retroactive cleanup
+- **SUMMARY.md files in Phase 10 lack `one_liner` field**: The `summary-extract` CLI tool returned null for both Phase 10 summaries; accomplishments had to be sourced from the Summary section prose instead
+
+### Patterns Established
+- **`DATABASE_URL` env var + local fallback**: `process.env["DATABASE_URL"] ?? "postgres://..."` is the canonical pattern for environment-driven config — works in Docker Compose (override) and local dev (fallback) with zero config files
+- **`health_fails 3` for long-boot services**: Services that take several seconds to initialize should use `health_fails 3` (not 1) to avoid false-negative health checks during startup
+- **No `ports:` on app service**: App replicas must not expose host ports — the load balancer is the sole ingress point; this is a Compose architectural constraint, not a preference
+
+### Key Lessons
+1. **Track requirement checkboxes during execution**: Phase 10 delivered all 6 CONT/DOCK requirements but never updated REQUIREMENTS.md — for the third consecutive milestone, traceability required retroactive correction. A post-plan checkbox update is the fix.
+2. **`localhost` inside Docker resolves to container loopback**: Hardcoded `localhost:15432` causes ECONNREFUSED inside a container. `DATABASE_URL` must be set before building any image that will run in Docker Compose — this is a sharp edge worth documenting prominently.
+3. **pg-boss multi-master is safe by design**: Six concurrent `boss.start()` calls with the same schema succeed cleanly — pg-boss uses `pg_advisory_xact_lock()` internally. No application-level coordination needed.
+4. **Exactly-once at scale requires no extra work**: pg-boss job claiming is already atomic at the database level. At 6 replicas with competing workers, exactly-once processing required zero application changes — it's a pg-boss guarantee, not an implementation task.
+
+### Cost Observations
+- Model mix: ~90% sonnet, ~10% opus (planning)
+- Sessions: 1 active session (~3 hours)
+- Notable: Live stack verification passed on first run — all 4 success criteria met simultaneously with no debugging required
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -143,6 +187,7 @@
 | v1.0 | ~4 | 4 | Initial project; established GSD workflow patterns |
 | v1.1 | ~1 | 3 | Research-first; zero rework; fan-out via native pub/sub |
 | v1.2 | ~1 | 2 | Async factory plugin pattern; sequential extract-then-compose phasing |
+| v1.3 | ~1 | 3 | Docker + horizontal scaling; live verification at 6 replicas |
 
 ### Cumulative Quality
 
@@ -151,11 +196,13 @@
 | v1.0 | 9+ | Core paths | 0 (Bun stdlib only) |
 | v1.1 | 9+ (unchanged) | Core paths | 0 (pg-boss already a dep) |
 | v1.2 | 9+ (unchanged) | Core paths | 0 (Elysia already a dep) |
+| v1.3 | 9+ (unchanged) | Core paths | 0 (Docker infrastructure, no new code deps) |
 
 ### Top Lessons (Verified Across Milestones)
 
 1. Structural typing makes domain/infra boundary fixes low-cost — introduce minimal interfaces early
-2. Track requirement completion inline during execution, not retroactively at milestone time
+2. **Track requirement completion inline during execution, not retroactively at milestone time** (recurring: v1.0, v1.3)
 3. Research phase quality directly determines execution speed — surface constraints before writing code
 4. Required parameters over optional ones when missing identity causes silent correctness bugs
 5. Sequential phasing (extract plugins first, compose second) keeps verification surfaces clean and unambiguous
+6. **`localhost` ≠ the same host inside Docker** — always use service names and env-var-driven connection strings in containerized workloads
