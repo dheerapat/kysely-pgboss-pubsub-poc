@@ -5,6 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-03-21)
 - ✅ **v1.1 pg-boss Native Pub/Sub + Fan-Out** — Phases 5-7 (shipped 2026-03-21)
 - ✅ **v1.2 Elysia Decorate Refactor** — Phases 8-9 (shipped 2026-03-22)
+- 🚧 **v1.3 Docker + Load Balancing** — Phases 10-12 (in progress)
 
 ## Phases
 
@@ -41,6 +42,58 @@ Archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
+### 🚧 v1.3 Docker + Load Balancing (In Progress)
+
+**Milestone Goal:** Containerize the app and run 6 parallel instances behind Caddy, proving horizontal scalability of the pg-boss event-driven architecture.
+
+- [ ] **Phase 10: App Containerization Foundation** — App code and Docker image ready for multi-container deployment
+- [ ] **Phase 11: Docker Compose Orchestration** — Full 3-service Compose stack with 6 replicas and correct boot ordering
+- [ ] **Phase 12: Caddy Load Balancing + Verification** — Round-robin load balancer proven across all 6 healthy replicas
+
+## Phase Details
+
+### Phase 10: App Containerization Foundation
+**Goal**: The app is containerizable — environment-driven config, health endpoint, graceful shutdown, and a minimal Docker image ready to run anywhere
+**Depends on**: Phase 9
+**Requirements**: CONT-01, CONT-02, CONT-03, DOCK-01, DOCK-02, DOCK-03
+**Success Criteria** (what must be TRUE):
+  1. `docker run` of the built image starts the app and connects to a Postgres instance supplied via `DATABASE_URL` env var
+  2. `GET /health` on the running container returns HTTP 200
+  3. `docker stop` triggers graceful shutdown — no abrupt kill, pg-boss workers drain before exit
+  4. The final Docker image contains only production deps and `src/` — no `node_modules` devDependencies, no `.git`, no `.env`
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+
+### Phase 11: Docker Compose Orchestration
+**Goal**: A single `docker compose up --build` starts postgres, 6 app replicas, and all replicas successfully connect and initialize pg-boss without race conditions
+**Depends on**: Phase 10
+**Requirements**: COMP-01, COMP-02, COMP-03, COMP-04
+**Success Criteria** (what must be TRUE):
+  1. `docker compose up --build` starts all services and app replicas connect to the Compose postgres service (not localhost)
+  2. All 6 app replicas start only after Postgres passes its `pg_isready` healthcheck — no crash loops
+  3. pg-boss initializes cleanly on all 6 instances simultaneously — no schema race errors in any replica log
+  4. App replicas have no `ports:` exposed to the host — only accessible via Caddy
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: TBD
+
+### Phase 12: Caddy Load Balancing + Verification
+**Goal**: All 6 replicas are accessible behind Caddy on port 8080 with round-robin load balancing and active health monitoring — the horizontal scaling thesis is visibly proven
+**Depends on**: Phase 11
+**Requirements**: CADDY-01, CADDY-02, CADDY-03
+**Success Criteria** (what must be TRUE):
+  1. `curl http://localhost:8080/users` returns a valid response — Caddy routes to a healthy app replica
+  2. Successive `POST /users` requests route to different replicas (round-robin observable in replica logs)
+  3. Caddy actively health-checks `/health` every 10s and stops routing to replicas that fail 3 consecutive checks
+  4. A single `POST /users` results in exactly one `user.registered` job processed (no duplicate processing across competing replicas)
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -54,7 +107,10 @@ Archive: `.planning/milestones/v1.2-ROADMAP.md`
 | 7. Documentation & Verification | v1.1 | 2/2 | Complete | 2026-03-21 |
 | 8. Plugin Extraction | v1.2 | 2/2 | Complete | 2026-03-21 |
 | 9. Composition Root | v1.2 | 1/1 | Complete | 2026-03-22 |
+| 10. App Containerization Foundation | v1.3 | 0/? | Not started | - |
+| 11. Docker Compose Orchestration | v1.3 | 0/? | Not started | - |
+| 12. Caddy Load Balancing + Verification | v1.3 | 0/? | Not started | - |
 
 ---
 
-*Last updated: 2026-03-22 — v1.2 milestone complete and archived*
+*Last updated: 2026-03-22 — v1.3 roadmap created (Docker + Load Balancing, Phases 10-12)*

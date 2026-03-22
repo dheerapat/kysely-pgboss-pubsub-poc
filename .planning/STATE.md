@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Docker + Load Balancing
-status: defining_requirements
-stopped_at: Milestone v1.3 started
+status: ready_to_plan
+stopped_at: Roadmap created — Phase 10 ready to plan
 last_updated: "2026-03-22T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,28 +19,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** v1.3 — Docker + Load Balancing
+**Current focus:** Phase 10 — App Containerization Foundation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-22 — Milestone v1.3 started
+Phase: 10 of 12 (App Containerization Foundation)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-03-22 — v1.3 roadmap created; Phase 10 ready to plan
+
+Progress: [░░░░░░░░░░] 0% (v1.3)
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v1.3 scoping]: 6 parallel app instances via Docker Compose `deploy.replicas`; pg-boss handles concurrent worker safety via DB locking
-- [v1.3 health]: Add GET /health endpoint — required for Caddy health_uri checks
-- [v1.3 dockerfile]: Multi-stage build (Bun builder + slim runtime)
-- [v1.2 scoping]: Zero behavioral changes — pure structural refactor using Elysia `.decorate()` pattern
-- [v1.2 plugin split]: 3 plugins (servicesPlugin / workersPlugin / userRoutesPlugin) + slim index.ts composition root
-- [v1.1 Phase 05]: Boot order enforced: `start → createQueue → subscribe → work → listen` — FK constraint on `pgboss.subscription` makes this non-optional
-- [v1.1 Phase 05]: Queue lifecycle moves entirely into `PgBossEventBus.subscribe()` — boss.ts is a bare PgBoss factory
-- [Phase 09]: index.ts accesses boss/pool for shutdown via services.decorator — no direct infrastructure imports remain
-- [Phase 09]: setupSchema() preserved as first boot step before createServicesPlugin()
+- [v1.3 Phase 10]: `DATABASE_URL` must be changed before any Docker image is built — `localhost:15432` resolves to container loopback inside Docker (ECONNREFUSED pitfall)
+- [v1.3 Phase 10]: Multi-stage Dockerfile uses `oven/bun:1.3.11` for both builder and runtime; no `bun build` step (Bun runs TypeScript natively)
+- [v1.3 Phase 11]: `deploy.replicas: 6` with no `ports:` on app service; only Caddy exposes port 8080
+- [v1.3 Phase 11]: pg-boss multi-master safe via `pg_advisory_xact_lock()` — 6 concurrent `boss.start()` calls are explicitly supported
+- [v1.3 Phase 12]: Caddy `health_fails 3` (not default 1) — pg-boss boot takes ~2-5s; premature unhealthy marking avoided
+- [v1.3 scoping]: `postgres:17` pinned (latest resolved to pg18 as of research; pg-boss 12.5.4 compatibility with pg18 untested)
 
 ### Pending Todos
 
@@ -57,9 +56,10 @@ None.
 - 2026-03-21: v1.2 milestone started — Elysia Decorate Refactor roadmap created (Phases 8-9)
 - 2026-03-22: v1.2 milestone complete — Elysia plugin pattern fully applied; index.ts is a pure composition root
 - 2026-03-22: v1.3 milestone started — Docker + Load Balancing
+- 2026-03-22: v1.3 roadmap created — Phases 10-12, 13 requirements mapped, ready to plan Phase 10
 
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Milestone v1.3 started — requirements phase
+Stopped at: Roadmap created for v1.3 — Phase 10 ready to plan
 Resume file: None
