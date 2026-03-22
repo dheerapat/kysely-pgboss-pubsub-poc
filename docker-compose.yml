@@ -18,7 +18,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgres://admin:pass@postgres:5432/postgres
-      PGBOSS_MAX_CONNECTIONS: "5"
+      PGBOSS_MAX_CONNECTIONS: "10"
     depends_on:
       postgres:
         condition: service_healthy
