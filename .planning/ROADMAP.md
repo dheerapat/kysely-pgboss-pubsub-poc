@@ -76,10 +76,10 @@ Plans:
   2. All 6 app replicas start only after Postgres passes its `pg_isready` healthcheck — no crash loops
   3. pg-boss initializes cleanly on all 6 instances simultaneously — no schema race errors in any replica log
   4. App replicas have no `ports:` exposed to the host — only accessible via Caddy
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 11-01: TBD
+- [ ] 11-01-PLAN.md — Docker Compose: postgres:17 + 6 app replicas with healthcheck boot ordering
 
 ### Phase 12: Caddy Load Balancing + Verification
 **Goal**: All 6 replicas are accessible behind Caddy on port 8080 with round-robin load balancing and active health monitoring — the horizontal scaling thesis is visibly proven
