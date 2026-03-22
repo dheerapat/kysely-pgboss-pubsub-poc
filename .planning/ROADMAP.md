@@ -48,7 +48,7 @@ Archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 - [x] **Phase 10: App Containerization Foundation** — App code and Docker image ready for multi-container deployment (completed 2026-03-22)
 - [x] **Phase 11: Docker Compose Orchestration** — Full 3-service Compose stack with 6 replicas and correct boot ordering (completed 2026-03-22)
-- [ ] **Phase 12: Caddy Load Balancing + Verification** — Round-robin load balancer proven across all 6 healthy replicas
+- [x] **Phase 12: Caddy Load Balancing + Verification** — Round-robin load balancer proven across all 6 healthy replicas (completed 2026-03-22)
 
 ## Phase Details
 
@@ -94,7 +94,7 @@ Plans:
 
 Plans:
 - [x] 12-01-PLAN.md — Caddyfile + docker-compose.yml Caddy service (CADDY-01, CADDY-02, CADDY-03)
-- [ ] 12-02-PLAN.md — Full stack verification: round-robin, exactly-once jobs, health monitoring
+- [x] 12-02-PLAN.md — Full stack verification: round-robin, exactly-once jobs, health monitoring
 
 ## Progress
 
@@ -111,7 +111,7 @@ Plans:
 | 9. Composition Root | v1.2 | 1/1 | Complete | 2026-03-22 |
 | 10. App Containerization Foundation | v1.3 | 2/2 | Complete    | 2026-03-22 |
 | 11. Docker Compose Orchestration | v1.3 | 1/1 | Complete   | 2026-03-22 |
-| 12. Caddy Load Balancing + Verification | v1.3 | 1/2 | In Progress|  |
+| 12. Caddy Load Balancing + Verification | v1.3 | 2/2 | Complete   | 2026-03-22 |
 
 ---
 
