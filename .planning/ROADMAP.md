@@ -61,10 +61,11 @@ Archive: `.planning/milestones/v1.2-ROADMAP.md`
   2. `GET /health` on the running container returns HTTP 200
   3. `docker stop` triggers graceful shutdown — no abrupt kill, pg-boss workers drain before exit
   4. The final Docker image contains only production deps and `src/` — no `node_modules` devDependencies, no `.git`, no `.env`
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
+- [ ] 10-01-PLAN.md — App code: DATABASE_URL env var, /health endpoint, SIGTERM shutdown
+- [ ] 10-02-PLAN.md — Docker artifacts: multi-stage Dockerfile, .dockerignore
 
 ### Phase 11: Docker Compose Orchestration
 **Goal**: A single `docker compose up --build` starts postgres, 6 app replicas, and all replicas successfully connect and initialize pg-boss without race conditions
