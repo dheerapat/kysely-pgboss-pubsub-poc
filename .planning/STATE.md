@@ -1,44 +1,63 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-status: milestone_complete
-last_updated: "2026-03-21T12:00:00.000Z"
+milestone: v1.3
+milestone_name: Docker + Load Balancing
+status: unknown
+stopped_at: Completed 12-02-PLAN.md — all 4 success criteria verified
+last_updated: "2026-03-22T06:39:58.362Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-21)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Domain writes and domain event publishing are atomic — if the transaction rolls back, the event is never queued.
-**Current focus:** v1.0 milestone complete — planning next milestone
+**Current focus:** Phase 12 — caddy-load-balancing-verification
 
-## Phase Status
+## Current Position
 
-| Phase | Name | Status | Plans | Progress |
-|-------|------|--------|-------|----------|
-| 1 | Infrastructure Foundation | ✓ Complete | 4/4 | 100% |
-| 2 | User Domain | ✓ Complete | 2/2 | 100% |
-| 3 | Notification Domain + HTTP API | ✓ Complete | 2/2 | 100% |
-| 4 | Rollback Demo + README | ✓ Complete | 1/1 | 100% |
+Phase: 12
+Plan: Not started
 
-## Milestone v1.0 — Shipped 2026-03-21
+## Accumulated Context
 
-All 4 phases, 9 plans, 14 tasks complete. Archived to `.planning/milestones/v1.0-ROADMAP.md`.
+### Decisions
+
+- [v1.3 Phase 10]: `DATABASE_URL` must be changed before any Docker image is built — `localhost:15432` resolves to container loopback inside Docker (ECONNREFUSED pitfall)
+- [v1.3 Phase 10]: Multi-stage Dockerfile uses `oven/bun:1.3.11` for both builder and runtime; no `bun build` step (Bun runs TypeScript natively)
+- [v1.3 Phase 11]: `deploy.replicas: 6` with no `ports:` on app service; only Caddy exposes port 8080
+- [v1.3 Phase 11]: pg-boss multi-master safe via `pg_advisory_xact_lock()` — 6 concurrent `boss.start()` calls are explicitly supported
+- [v1.3 Phase 12]: Caddy `health_fails 3` (not default 1) — pg-boss boot takes ~2-5s; premature unhealthy marking avoided
+- [v1.3 scoping]: `postgres:17` pinned (latest resolved to pg18 as of research; pg-boss 12.5.4 compatibility with pg18 untested)
+- [Phase 11]: deploy.replicas: 6 with no ports: on app service — Caddy (Phase 12) is the sole host-facing entry point
+- [Phase 11]: PGBOSS_MAX_CONNECTIONS: 5 per replica — 6×5=30 connections, under Postgres default max of 100; pool.ts reads env var
+
+### Pending Todos
+
+None.
+
+### Blockers/Concerns
+
+None.
 
 ## Log
 
-- 2026-03-20: Project initialized
-- 2026-03-20: Requirements defined (20 v1 requirements)
-- 2026-03-20: Roadmap created (4 phases)
-- 2026-03-20: Phase 02 plan 01 complete — UserId, Email, User, IUserRepository domain layer
-- 2026-03-20: Phase 02 plan 02 complete — UserRepository (Kysely), UserService (atomic tx), composition root wired
-- 2026-03-21: Phase 01 plan 04 complete — IDbClient boundary fix (gap closure)
-- 2026-03-21: v1.0 milestone complete — all requirements shipped, archived to milestones/
+- 2026-03-21: v1.0 milestone complete — all requirements shipped
+- 2026-03-21: v1.1 milestone complete — pub/sub migration, fan-out, rollback regression, README shipped
+- 2026-03-21: v1.2 milestone started — Elysia Decorate Refactor roadmap created (Phases 8-9)
+- 2026-03-22: v1.2 milestone complete — Elysia plugin pattern fully applied; index.ts is a pure composition root
+- 2026-03-22: v1.3 milestone started — Docker + Load Balancing
+- 2026-03-22: v1.3 roadmap created — Phases 10-12, 13 requirements mapped, ready to plan Phase 10
+
+## Session Continuity
+
+Last session: 2026-03-22T06:24:18.995Z
+Stopped at: Completed 12-02-PLAN.md — all 4 success criteria verified
+Resume file: None

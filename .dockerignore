@@ -1,0 +1,24 @@
+# Dependencies — installed fresh inside Docker
+node_modules
+
+# Git history — never needed in image, large
+.git
+.gitignore
+
+# Environment secrets — MUST never leak into image
+.env
+.env.*
+
+# Lock files — bun.lock is NEEDED (exception below), others are not
+# (bun.lock is NOT excluded — required for --frozen-lockfile in install stage)
+
+# Docker files themselves
+Dockerfile
+Dockerfile.*
+.dockerignore
+docker-compose*.yaml
+
+# Development artifacts
+*.md
+.vscode
+coverage

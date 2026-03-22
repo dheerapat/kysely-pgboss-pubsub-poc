@@ -20,9 +20,13 @@ export interface IEventBus {
 
   /**
    * Subscribe a handler to an event. The handler receives a typed payload.
+   * subscriberName is used to derive the subscriber-specific queue name.
+   * Convention: `{subscriberName}.{eventName}` — e.g. "notification.user.registered"
+   * This naming is encapsulated in the concrete implementation (PgBossEventBus).
    */
   subscribe<K extends keyof DomainEventMap>(
     event: K,
     handler: (payload: DomainEventMap[K]) => Promise<void>,
+    subscriberName: string,
   ): Promise<void>;
 }
