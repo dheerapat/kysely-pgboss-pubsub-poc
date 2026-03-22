@@ -1,18 +1,13 @@
 /**
- * Application entry point.
- * Wires all infrastructure: database, pg-boss, event bus.
- * Registers notification domain worker.
- * Starts Elysia HTTP server.
+ * Application composition root.
+ * Imports and composes the three Elysia plugins, enforces boot order, starts the server.
+ * Zero service instantiation or subscription wiring lives here.
  */
-import { Elysia } from "elysia";
 import { setupSchema } from "./infrastructure/db/schema.ts";
-import { createBoss } from "./infrastructure/events/boss.ts";
-import { PgBossEventBus } from "./infrastructure/events/PgBossEventBus.ts";
-import { pool } from "./infrastructure/db/pool.ts";
-import { UserRepository } from "./infrastructure/user/UserRepository.ts";
-import { UserService } from "./domains/user/UserService.ts";
-import { NotificationService } from "./domains/notification/NotificationService.ts";
-import { AuditService } from "./domains/audit/AuditService.ts";
+import { createServicesPlugin } from "./plugins/servicesPlugin.ts";
+import { createWorkersPlugin } from "./plugins/workersPlugin.ts";
+import { createUserRoutesPlugin } from "./plugins/userRoutesPlugin.ts";
+import { Elysia } from "elysia";
 
 const PORT = parseInt(process.env["PORT"] ?? "3000");
 
@@ -20,70 +15,35 @@ async function main(): Promise<void> {
   // 1. Set up database schema
   await setupSchema();
 
-  // 2. Start pg-boss singleton (queue lifecycle managed in PgBossEventBus.subscribe())
-  const boss = await createBoss();
+  // 2. Boot all infrastructure and domain services
+  const services = await createServicesPlugin();
 
-  // 3. Create the event bus (implements IEventBus)
-  const eventBus = new PgBossEventBus(boss);
-
-  // 4. Wire domain services
-  const userRepo = new UserRepository();
-  const userService = new UserService(userRepo, eventBus);
-
-  // 5. Subscribe ALL workers BEFORE server starts — boot order enforces fan-out correctness
-  //    Each subscribe() call: createQueue → boss.subscribe → boss.work
-  //    Boot order: start → (createQueue + subscribe + work) × N subscribers → listen
-  const notificationService = new NotificationService();
-  await eventBus.subscribe(
-    "user.registered",
-    (payload) => notificationService.handleUserRegistered(payload),
-    "notification",
+  // 3. Subscribe ALL workers BEFORE server starts — boot order: subscribe → listen
+  const workers = await createWorkersPlugin(
+    services.decorator.eventBus,
+    services.decorator.notificationService,
+    services.decorator.auditService,
   );
-  console.log("[app] NotificationService subscribed to user.registered.");
 
-  const auditService = new AuditService();
-  await eventBus.subscribe(
-    "user.registered",
-    (payload) => auditService.handleUserRegistered(payload),
-    "audit",
-  );
-  console.log("[app] AuditService subscribed to user.registered.");
+  // 4. Build route plugin (uses services for typed context injection)
+  const routes = createUserRoutesPlugin(services);
 
-  // 6. Start HTTP server
+  // 5. Compose plugins and start HTTP server
   const app = new Elysia()
-    .get("/users", async () => {
-      return userRepo.findAll();
-    })
-    .post("/users", async ({ body, set }) => {
-      const { email, name } = body as { email: string; name: string };
-      try {
-        const result = await userService.register(email, name);
-        set.status = 201;
-        return result;
-      } catch (err) {
-        if (
-          typeof err === "object" &&
-          err !== null &&
-          "code" in err &&
-          (err as { code: string }).code === "23505"
-        ) {
-          set.status = 409;
-          return { error: "Email already registered" };
-        }
-        throw err;
-      }
-    })
+    .use(services)
+    .use(workers)
+    .use(routes)
     .listen(PORT);
 
   console.log(`[app] Elysia server running on port ${app.server?.port}`);
   console.log("[app] Infrastructure ready. Awaiting requests.");
 
-  // Graceful shutdown
+  // 6. Graceful shutdown — stop boss and pool via decorated context
   process.on("SIGINT", async () => {
     console.log("[app] Shutting down...");
     app.server?.stop();
-    await boss.stop();
-    await pool.end();
+    await services.decorator.boss.stop();
+    await services.decorator.pool.end();
     process.exit(0);
   });
 }
