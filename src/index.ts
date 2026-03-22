@@ -39,13 +39,17 @@ async function main(): Promise<void> {
   console.log("[app] Infrastructure ready. Awaiting requests.");
 
   // 6. Graceful shutdown — stop boss and pool via decorated context
-  process.on("SIGINT", async () => {
-    console.log("[app] Shutting down...");
+  //    Handles both SIGINT (Ctrl+C) and SIGTERM (docker stop)
+  const shutdown = async (signal: string): Promise<void> => {
+    console.log(`[app] Received ${signal}, shutting down...`);
     app.server?.stop();
-    await services.decorator.boss.stop();
+    await services.decorator.boss.stop();   // drains pg-boss workers (default: graceful=true, timeout=30s)
     await services.decorator.pool.end();
     process.exit(0);
-  });
+  };
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 main().catch((err) => {

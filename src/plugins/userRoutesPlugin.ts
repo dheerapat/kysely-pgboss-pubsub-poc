@@ -1,5 +1,6 @@
 /**
- * userRoutesPlugin: Elysia plugin encapsulating all /users route handlers.
+ * userRoutesPlugin: Elysia plugin encapsulating all /users route handlers
+ * and the /health liveness endpoint.
  *
  * Route handlers access services via context properties injected by servicesPlugin
  * (userRepo, userService) — no closure over outer variables.
@@ -15,6 +16,7 @@ export function createUserRoutesPlugin(
 ) {
   return new Elysia({ name: "user-routes" })
     .use(services)
+    .get("/health", () => ({ status: "ok" }))
     .get("/users", async ({ userRepo }) => {
       return userRepo.findAll();
     })
