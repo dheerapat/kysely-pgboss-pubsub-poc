@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Elysia Decorate Refactor
 status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-21T17:00:57.254Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-22T03:23:21.088Z"
 progress:
   total_phases: 2
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -43,6 +43,8 @@ Plan: Not started
 - [v1.2 plugin split]: 3 plugins (servicesPlugin / workersPlugin / userRoutesPlugin) + slim index.ts composition root
 - [v1.1 Phase 05]: Boot order enforced: `start → createQueue → subscribe → work → listen` — FK constraint on `pgboss.subscription` makes this non-optional
 - [v1.1 Phase 05]: Queue lifecycle moves entirely into `PgBossEventBus.subscribe()` — boss.ts is a bare PgBoss factory
+- [Phase 09]: index.ts accesses boss/pool for shutdown via services.decorator — no direct infrastructure imports remain
+- [Phase 09]: setupSchema() preserved as first boot step before createServicesPlugin()
 
 ### Pending Todos
 
@@ -60,6 +62,6 @@ None — v1.1 shipped clean; refactor is additive file reorganization only.
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:46:36.033Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-22T03:23:21.085Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None

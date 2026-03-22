@@ -36,7 +36,7 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 **Milestone Goal:** Refactor `src/index.ts` from a monolithic wiring file into a clean composition root using Elysia's `decorate` pattern — zero behavioral changes.
 
 - [ ] **Phase 8: Plugin Extraction** — Create servicesPlugin, workersPlugin, and userRoutesPlugin as standalone Elysia plugins with full type safety
-- [ ] **Phase 9: Composition Root** — Slim index.ts to a pure composition root that only composes plugins and starts the server
+- [x] **Phase 9: Composition Root** — Slim index.ts to a pure composition root that only composes plugins and starts the server (completed 2026-03-22)
 
 ## Phase Details
 
@@ -67,7 +67,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 09-01-PLAN.md — Rewrite src/index.ts as pure composition root (compose three plugins, enforce boot order, graceful shutdown)
+- [x] 09-01-PLAN.md — Rewrite src/index.ts as pure composition root (compose three plugins, enforce boot order, graceful shutdown)
 
 ## Progress
 
@@ -81,7 +81,7 @@ Plans:
 | 6. PgBossEventBus Migration + Fan-Out Wiring | v1.1 | 3/3 | Complete | 2026-03-21 |
 | 7. Documentation & Verification | v1.1 | 2/2 | Complete | 2026-03-21 |
 | 8. Plugin Extraction | v1.2 | 0/TBD | Not started | - |
-| 9. Composition Root | v1.2 | 0/TBD | Not started | - |
+| 9. Composition Root | v1.2 | 1/1 | Complete   | 2026-03-22 |
 
 ---
 

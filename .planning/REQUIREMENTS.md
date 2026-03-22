@@ -15,9 +15,9 @@ Requirements for the Elysia Decorate Refactor milestone. Zero behavioral changes
 
 ### Composition Root
 
-- [ ] **ROOT-01**: `src/index.ts` contains only plugin composition and server start — no `new Service()` instantiation, no inline `await eventBus.subscribe()` calls
-- [ ] **ROOT-02**: Boot order is preserved — workers plugin registered before server starts (subscriptions before `.listen()`)
-- [ ] **ROOT-03**: Graceful shutdown handler remains accessible from `index.ts`, stopping boss and pool on SIGINT
+- [x] **ROOT-01**: `src/index.ts` contains only plugin composition and server start — no `new Service()` instantiation, no inline `await eventBus.subscribe()` calls
+- [x] **ROOT-02**: Boot order is preserved — workers plugin registered before server starts (subscriptions before `.listen()`)
+- [x] **ROOT-03**: Graceful shutdown handler remains accessible from `index.ts`, stopping boss and pool on SIGINT
 
 ### Type Safety
 
@@ -49,9 +49,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLUG-01 | Phase 8 | Complete |
 | PLUG-02 | Phase 8 | Complete |
 | PLUG-03 | Phase 8 | Complete |
-| ROOT-01 | Phase 9 | Pending |
-| ROOT-02 | Phase 9 | Pending |
-| ROOT-03 | Phase 9 | Pending |
+| ROOT-01 | Phase 9 | Complete |
+| ROOT-02 | Phase 9 | Complete |
+| ROOT-03 | Phase 9 | Complete |
 | TYPE-01 | Phase 8 | Complete |
 
 **Coverage:**
