@@ -64,7 +64,10 @@ Plans:
   2. `src/index.ts` contains no inline `await eventBus.subscribe()` calls — all subscription setup lives in `workersPlugin`
   3. Boot order is preserved: workersPlugin is registered and awaited before `app.listen()` is called
   4. SIGINT handler in `index.ts` still stops boss and pool cleanly — graceful shutdown works identically to pre-refactor
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md — Rewrite src/index.ts as pure composition root (compose three plugins, enforce boot order, graceful shutdown)
 
 ## Progress
 
