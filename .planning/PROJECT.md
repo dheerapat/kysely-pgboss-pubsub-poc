@@ -69,12 +69,24 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 - ✓ Multi-stage Dockerfile using `oven/bun:1.3.11` — production deps only in runtime image (DOCK-01, DOCK-03) — v1.3
 - ✓ `.dockerignore` excludes `node_modules`, `.git`, `.env`; `bun.lock` accessible for `--frozen-lockfile` (DOCK-02) — v1.3
 
+### Validated in Phase 11: docker-compose-setup
+
+- ✓ Docker Compose with `deploy.replicas: 6` for the app service (COMP-02) — v1.3
+- ✓ PostgreSQL service in Compose with persistent volume and `pg_isready` healthcheck (COMP-01) — v1.3
+- ✓ App service has no `ports:` mapping — only Caddy exposes a host port (COMP-04) — v1.3
+- ✓ pg-boss multi-master safe: 6 concurrent `boss.start()` calls explicitly supported via advisory lock (COMP-03) — v1.3
+
+### Validated in Phase 12: caddy-load-balancing-verification
+
+- ✓ Caddyfile with `reverse_proxy app:3000 lb_policy round_robin` (CADDY-01) — v1.3
+- ✓ Caddyfile health check: `health_uri /health`, `health_interval 10s`, `health_fails 3` (CADDY-02) — v1.3
+- ✓ Caddy service in Docker Compose exposes port `8080:8080` (CADDY-03) — v1.3
+- ✓ Round-robin routing confirmed live: all 6 replicas each handled 1 of 6 successive POST /users requests — v1.3
+- ✓ Exactly-once job processing confirmed: singleton POST → exactly 1 NotificationService + 1 AuditService execution (0 duplicates) — v1.3
+
 ### Active
 
-- [ ] Docker Compose with `deploy.replicas: 6` for the app service
-- [ ] PostgreSQL service in Compose with persistent volume
-- [ ] Caddy service with round-robin `reverse_proxy` to app instances
-- [ ] Caddyfile with health check config (`health_uri /health`, 10s interval)
+*(None — v1.3 milestone complete)*
 
 ### Out of Scope
 
@@ -92,7 +104,7 @@ Domain writes and domain event publishing are atomic: if the transaction rolls b
 
 ## Context
 
-**Status:** v1.0, v1.1, and v1.2 all shipped. Codebase is feature-complete for the POC thesis. All three milestones archived.
+**Status:** v1.0, v1.1, v1.2, and v1.3 all shipped. Codebase is feature-complete for the POC thesis. All four milestones archived. The horizontal scaling thesis is proven: 6 app replicas behind Caddy with pg-boss exactly-once job processing.
 
 **Stack:** Bun runtime, TypeScript (strict), Kysely ^0.28.9, pg ^8.16.3, pg-boss ^12.5.4, Elysia HTTP, Docker Compose for Postgres.
 
@@ -152,4 +164,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 10 (app-containerization-foundation) complete*
+*Last updated: 2026-03-22 after Phase 12 (caddy-load-balancing-verification) complete — v1.3 milestone shipped*
