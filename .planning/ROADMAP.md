@@ -47,7 +47,7 @@ Archive: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Containerize the app and run 6 parallel instances behind Caddy, proving horizontal scalability of the pg-boss event-driven architecture.
 
 - [x] **Phase 10: App Containerization Foundation** — App code and Docker image ready for multi-container deployment (completed 2026-03-22)
-- [ ] **Phase 11: Docker Compose Orchestration** — Full 3-service Compose stack with 6 replicas and correct boot ordering
+- [x] **Phase 11: Docker Compose Orchestration** — Full 3-service Compose stack with 6 replicas and correct boot ordering (completed 2026-03-22)
 - [ ] **Phase 12: Caddy Load Balancing + Verification** — Round-robin load balancer proven across all 6 healthy replicas
 
 ## Phase Details
@@ -79,7 +79,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 11-01-PLAN.md — Docker Compose: postgres:17 + 6 app replicas with healthcheck boot ordering
+- [x] 11-01-PLAN.md — Docker Compose: postgres:17 + 6 app replicas with healthcheck boot ordering
 
 ### Phase 12: Caddy Load Balancing + Verification
 **Goal**: All 6 replicas are accessible behind Caddy on port 8080 with round-robin load balancing and active health monitoring — the horizontal scaling thesis is visibly proven
@@ -109,7 +109,7 @@ Plans:
 | 8. Plugin Extraction | v1.2 | 2/2 | Complete | 2026-03-21 |
 | 9. Composition Root | v1.2 | 1/1 | Complete | 2026-03-22 |
 | 10. App Containerization Foundation | v1.3 | 2/2 | Complete    | 2026-03-22 |
-| 11. Docker Compose Orchestration | v1.3 | 0/? | Not started | - |
+| 11. Docker Compose Orchestration | v1.3 | 1/1 | Complete   | 2026-03-22 |
 | 12. Caddy Load Balancing + Verification | v1.3 | 0/? | Not started | - |
 
 ---

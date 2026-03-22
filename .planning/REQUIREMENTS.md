@@ -20,10 +20,10 @@
 
 ### Compose Orchestration
 
-- [ ] **COMP-01**: Docker Compose defines `postgres:17` service using credentials from existing `docker-compose.postgres.yaml` (`admin`/`pass`/`postgres`) with volume path `/var/lib/postgresql` and a `pg_isready` healthcheck
-- [ ] **COMP-02**: App service uses `deploy.replicas: 6` with `depends_on: condition: service_healthy` on Postgres
-- [ ] **COMP-03**: App service configures pg pool `max: 5` via env var (6 × 5 = 30 connections, under Postgres default of 100)
-- [ ] **COMP-04**: App service has no `ports:` mapping — only Caddy exposes a host port
+- [x] **COMP-01**: Docker Compose defines `postgres:17` service using credentials from existing `docker-compose.postgres.yaml` (`admin`/`pass`/`postgres`) with volume path `/var/lib/postgresql` and a `pg_isready` healthcheck
+- [x] **COMP-02**: App service uses `deploy.replicas: 6` with `depends_on: condition: service_healthy` on Postgres
+- [x] **COMP-03**: App service configures pg pool `max: 5` via env var (6 × 5 = 30 connections, under Postgres default of 100)
+- [x] **COMP-04**: App service has no `ports:` mapping — only Caddy exposes a host port
 
 ### Caddy Load Balancing
 
@@ -56,10 +56,10 @@
 | DOCK-01 | Phase 10 | Pending |
 | DOCK-02 | Phase 10 | Pending |
 | DOCK-03 | Phase 10 | Pending |
-| COMP-01 | Phase 11 | Pending |
-| COMP-02 | Phase 11 | Pending |
-| COMP-03 | Phase 11 | Pending |
-| COMP-04 | Phase 11 | Pending |
+| COMP-01 | Phase 11 | Complete |
+| COMP-02 | Phase 11 | Complete |
+| COMP-03 | Phase 11 | Complete |
+| COMP-04 | Phase 11 | Complete |
 | CADDY-01 | Phase 12 | Pending |
 | CADDY-02 | Phase 12 | Pending |
 | CADDY-03 | Phase 12 | Pending |

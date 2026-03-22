@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Docker + Load Balancing
 status: unknown
-stopped_at: Roadmap created for v1.3 — Phase 10 ready to plan
-last_updated: "2026-03-22T04:25:18.228Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-22T05:35:19.709Z"
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -36,6 +36,8 @@ Plan: Not started
 - [v1.3 Phase 11]: pg-boss multi-master safe via `pg_advisory_xact_lock()` — 6 concurrent `boss.start()` calls are explicitly supported
 - [v1.3 Phase 12]: Caddy `health_fails 3` (not default 1) — pg-boss boot takes ~2-5s; premature unhealthy marking avoided
 - [v1.3 scoping]: `postgres:17` pinned (latest resolved to pg18 as of research; pg-boss 12.5.4 compatibility with pg18 untested)
+- [Phase 11]: deploy.replicas: 6 with no ports: on app service — Caddy (Phase 12) is the sole host-facing entry point
+- [Phase 11]: PGBOSS_MAX_CONNECTIONS: 5 per replica — 6×5=30 connections, under Postgres default max of 100; pool.ts reads env var
 
 ### Pending Todos
 
@@ -56,6 +58,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22
-Stopped at: Roadmap created for v1.3 — Phase 10 ready to plan
+Last session: 2026-03-22T05:35:19.704Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
